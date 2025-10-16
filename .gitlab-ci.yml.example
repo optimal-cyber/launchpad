@@ -1,0 +1,55 @@
+stages: [sbom, scan, publish]
+
+sbom:
+  stage: sbom
+  image: anchore/syft:latest
+  script:
+    - syft packages dir:. -o cyclonedx-json > sbom.cdx.json
+  artifacts:
+    paths:
+      - sbom.cdx.json
+    expire_in: 7 days
+
+vuln:
+  stage: scan
+  image: anchore/grype:latest
+  needs: ["sbom"]
+  script:
+    - grype sbom:sbom.cdx.json -o json > grype.json
+  artifacts:
+    when: always
+    paths:
+      - sbom.cdx.json
+      - grype.json
+    expire_in: 7 days
+
+publish-to-optimal:
+  stage: publish
+  image: curlimages/curl:8.8.0
+  needs: ["vuln"]
+  script:
+    - |
+      cat > meta.json <<EOF
+      {
+        "gitlab_project_id": ${CI_PROJECT_ID},
+        "pipeline_id": ${CI_PIPELINE_ID},
+        "job_id": ${CI_JOB_ID},
+        "sha": "${CI_COMMIT_SHA}",
+        "ref": "${CI_COMMIT_REF_NAME}",
+        "image_tag": "${CI_COMMIT_SHORT_SHA}",
+        "web_url": "${CI_JOB_URL}"
+      }
+      EOF
+    - |
+      curl -sS -X POST "$DEVSECOPS_API/ingest/push" \
+        -H "X-Optimal-Token: $DEVSECOPS_TOKEN" \
+        -F sbom=@sbom.cdx.json \
+        -F grype=@grype.json \
+        -F meta=@meta.json
+  rules:
+    - if: $DEVSECOPS_API
+  artifacts:
+    when: always
+    reports:
+      dotenv: # optional; surface response info
+

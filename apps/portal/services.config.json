@@ -1,0 +1,119 @@
+{
+  "groups": [
+    {
+      "name": "Development",
+      "services": [
+        { 
+          "key": "gitlab", 
+          "label": "GitLab", 
+          "url": "https://gitlab.com", 
+          "icon": "gitlab", 
+          "health": { "type": "http", "path": "/users/sign_in" },
+          "description": "Git repository and CI/CD pipeline management"
+        },
+        { 
+          "key": "drawio", 
+          "label": "draw.io", 
+          "url": "https://app.diagrams.net", 
+          "icon": "drawio",
+          "description": "Diagram and flowchart creation"
+        }
+      ]
+    },
+    {
+      "name": "Delivery",
+      "services": [
+        { 
+          "key": "argo", 
+          "label": "Argo CD", 
+          "url": "https://argo.example.com", 
+          "icon": "argo", 
+          "health": { "type": "http", "path": "/applications" },
+          "description": "GitOps continuous delivery for Kubernetes"
+        }
+      ]
+    },
+    {
+      "name": "Security",
+      "services": [
+        { 
+          "key": "harbor", 
+          "label": "Harbor", 
+          "url": "https://harbor.example.com", 
+          "icon": "harbor", 
+          "health": { "type": "http", "path": "/api/v2.0/health" },
+          "description": "Container image registry and vulnerability scanner"
+        },
+        { 
+          "key": "grafana", 
+          "label": "Grafana", 
+          "url": "https://grafana.example.com", 
+          "icon": "grafana", 
+          "health": { "type": "http", "path": "/api/health" },
+          "description": "Monitoring and observability dashboards"
+        },
+        { 
+          "key": "kubecost", 
+          "label": "Kubecost", 
+          "url": "https://kubecost.example.com", 
+          "icon": "kubecost",
+          "description": "Kubernetes cost monitoring and optimization"
+        }
+      ]
+    },
+    {
+      "name": "Collaboration",
+      "services": [
+        { 
+          "key": "jira", 
+          "label": "Jira", 
+          "url": "https://optimal.atlassian.net", 
+          "icon": "jira",
+          "description": "Project management and issue tracking"
+        },
+        { 
+          "key": "conf", 
+          "label": "Confluence", 
+          "url": "https://optimal.atlassian.net/wiki", 
+          "icon": "confluence",
+          "description": "Team collaboration and documentation"
+        },
+        { 
+          "key": "rocket", 
+          "label": "Rocket.Chat", 
+          "url": "https://chat.optimal.io", 
+          "icon": "rocketchat",
+          "description": "Team chat and communication"
+        },
+        { 
+          "key": "slack", 
+          "label": "Slack", 
+          "url": "https://optimal.slack.com", 
+          "icon": "slack",
+          "description": "Team collaboration and messaging"
+        }
+      ]
+    },
+    {
+      "name": "Cloud & Data",
+      "services": [
+        { 
+          "key": "kion", 
+          "label": "Kion", 
+          "url": "https://console.kion.io", 
+          "icon": "kion",
+          "description": "Cloud financial management and governance"
+        },
+        { 
+          "key": "superset", 
+          "label": "Superset", 
+          "url": "https://superset.example.com", 
+          "icon": "superset", 
+          "health": { "type": "http", "path": "/health" },
+          "description": "Data exploration and visualization platform"
+        }
+      ]
+    }
+  ]
+}
+

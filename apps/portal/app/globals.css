@@ -1,0 +1,555 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palantir Apollo-inspired dark theme */
+:root {
+  --apollo-bg-primary: #0f0f0f;
+  --apollo-bg-secondary: #1a1a1a;
+  --apollo-bg-tertiary: #2a2a2a;
+  --apollo-text-primary: #ffffff;
+  --apollo-text-secondary: #a0a0a0;
+  --apollo-text-muted: #666666;
+  --apollo-accent-blue: #3b82f6;
+  --apollo-accent-green: #10b981;
+  --apollo-accent-red: #ef4444;
+  --apollo-accent-yellow: #f59e0b;
+  --apollo-border: #333333;
+  --apollo-hover: #404040;
+}
+
+.dark {
+  --background: var(--apollo-bg-primary);
+  --foreground: var(--apollo-text-primary);
+  --card: var(--apollo-bg-secondary);
+  --card-foreground: var(--apollo-text-primary);
+  --popover: var(--apollo-bg-secondary);
+  --popover-foreground: var(--apollo-text-primary);
+  --primary: var(--apollo-accent-blue);
+  --primary-foreground: var(--apollo-text-primary);
+  --secondary: var(--apollo-bg-tertiary);
+  --secondary-foreground: var(--apollo-text-primary);
+  --muted: var(--apollo-bg-tertiary);
+  --muted-foreground: var(--apollo-text-muted);
+  --accent: var(--apollo-bg-tertiary);
+  --accent-foreground: var(--apollo-text-primary);
+  --destructive: var(--apollo-accent-red);
+  --destructive-foreground: var(--apollo-text-primary);
+  --border: var(--apollo-border);
+  --input: var(--apollo-border);
+  --ring: var(--apollo-accent-blue);
+  --radius: 0.5rem;
+}
+
+/* Apollo-style components */
+.apollo-card {
+  @apply bg-gray-900 border border-gray-700 rounded-lg shadow-sm;
+}
+
+.apollo-table {
+  @apply w-full text-sm text-white;
+}
+
+.apollo-table th {
+  @apply px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider border-b border-gray-700;
+}
+
+.apollo-table td {
+  @apply px-4 py-3 border-b border-gray-700;
+}
+
+.apollo-table tbody tr:hover {
+  @apply bg-gray-800/50;
+}
+
+.apollo-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.apollo-badge-success {
+  @apply bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400;
+}
+
+.apollo-badge-warning {
+  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400;
+}
+
+.apollo-badge-error {
+  @apply bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400;
+}
+
+.apollo-badge-info {
+  @apply bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400;
+}
+
+.apollo-status-indicator {
+  @apply w-2 h-2 rounded-full;
+}
+
+.apollo-status-healthy {
+  @apply bg-green-500;
+}
+
+.apollo-status-warning {
+  @apply bg-yellow-500;
+}
+
+.apollo-status-error {
+  @apply bg-red-500;
+}
+
+.apollo-status-unknown {
+  @apply bg-gray-500;
+}
+
+/* Timeline/Chart styling */
+.apollo-timeline {
+  @apply relative;
+}
+
+.apollo-timeline-bar {
+  @apply h-4 rounded-sm;
+}
+
+.apollo-timeline-success {
+  @apply bg-green-500;
+}
+
+.apollo-timeline-warning {
+  @apply bg-yellow-500;
+}
+
+.apollo-timeline-error {
+  @apply bg-red-500;
+}
+
+.apollo-timeline-info {
+  @apply bg-blue-500;
+}
+
+/* Filter sidebar */
+.apollo-sidebar {
+  @apply w-80 bg-gray-900 border-r border-gray-700;
+}
+
+.apollo-filter-section {
+  @apply p-4 border-b border-gray-700;
+}
+
+.apollo-filter-title {
+  @apply text-sm font-medium text-white mb-3;
+}
+
+.apollo-filter-item {
+  @apply flex items-center justify-between py-2 text-sm text-gray-400 hover:text-white cursor-pointer;
+}
+
+.apollo-filter-count {
+  @apply text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded;
+}
+
+/* Main content area */
+.apollo-main {
+  @apply flex-1 bg-gray-900;
+}
+
+.apollo-header {
+  @apply bg-gray-900 border-b border-gray-700 px-6 py-4;
+}
+
+.apollo-tabs {
+  @apply flex space-x-8 border-b border-gray-700;
+}
+
+.apollo-tab {
+  @apply py-2 px-1 text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent;
+}
+
+.apollo-tab-active {
+  @apply text-blue-400 border-blue-400;
+}
+
+/* Data visualization */
+.apollo-metric-card {
+  @apply apollo-card p-6 text-center;
+}
+
+.apollo-metric-value {
+  @apply text-3xl font-bold text-white;
+}
+
+.apollo-metric-label {
+  @apply text-sm text-gray-400 mt-1;
+}
+
+.apollo-progress-bar {
+  @apply w-full bg-gray-700 rounded-full h-2;
+}
+
+.apollo-progress-fill {
+  @apply h-2 rounded-full transition-all duration-300;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .apollo-sidebar {
+    @apply w-64;
+  }
+}
+
+/* Modern CSS Variables for Consistent Design */
+:root {
+  --foreground: 222.2 84% 4.9%;
+  --background: 0 0% 100%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 222.2 47.4% 11.2%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+  --radius: 0.5rem;
+  
+  /* Custom Design Tokens */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.dark {
+  --foreground: 210 40% 98%;
+  --background: 222.2 84% 4.9%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
+}
+
+/* Base Styles */
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--background)) !important;
+}
+
+/* Force theme application */
+html.light {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* Ensure text is always visible */
+.text-gray-900 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.text-gray-700 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.text-gray-600 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.text-gray-500 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.text-gray-400 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Card backgrounds */
+.bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+.bg-gray-50 {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.bg-gray-100 {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+/* Borders */
+.border-gray-200 {
+  border-color: hsl(var(--border)) !important;
+}
+
+.border-gray-300 {
+  border-color: hsl(var(--input)) !important;
+}
+
+/* Hover states */
+.hover\:bg-gray-50:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.hover\:bg-gray-100:hover {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+/* Table styles */
+.table th {
+  color: hsl(var(--foreground)) !important;
+}
+
+.table td {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Form inputs */
+input, select, textarea {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--input)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Button text */
+button {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Ensure all text elements are visible */
+h1, h2, h3, h4, h5, h6, p, span, div, label {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Special handling for specific text colors that should remain */
+.text-blue-600, .text-green-600, .text-red-600, .text-yellow-600,
+.text-blue-700, .text-green-700, .text-red-700, .text-yellow-700 {
+  color: inherit !important;
+}
+
+/* Badge and status colors should remain */
+.bg-red-100, .bg-green-100, .bg-yellow-100, .bg-blue-100,
+.bg-orange-100, .bg-purple-100, .bg-gray-100 {
+  background-color: inherit !important;
+}
+
+.text-red-800, .text-green-800, .text-yellow-800, .text-blue-800,
+.text-orange-800, .text-purple-800, .text-gray-800 {
+  color: inherit !important;
+}
+
+/* Modern Component Styles */
+.card {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: 0.5rem 1rem;
+}
+
+.btn-primary:hover {
+  background-color: hsl(var(--primary) / 0.9);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  padding: 0.5rem 1rem;
+}
+
+.btn-secondary:hover {
+  background-color: hsl(var(--secondary) / 0.8);
+}
+
+/* Modern Form Styles */
+.input {
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.1);
+}
+
+/* Modern Table Styles */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  background-color: hsl(var(--muted));
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.table tr:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Modern Badge/Pill Styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.badge-primary {
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}
+
+.badge-secondary {
+  background-color: hsl(var(--secondary) / 0.1);
+  color: hsl(var(--secondary-foreground));
+}
+
+.badge-destructive {
+  background-color: hsl(var(--destructive) / 0.1);
+  color: hsl(var(--destructive));
+}
+
+/* Blob Animation for SSO Page */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Line clamp utility */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Modern Loading States */
+.skeleton {
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted) / 0.5) 50%, hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Modern Focus States */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.focus-ring:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Modern Transitions */
+.transition-all {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-colors {
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-transform {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+

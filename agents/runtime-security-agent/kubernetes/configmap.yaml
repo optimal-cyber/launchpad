@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optimal-agent-config
+  namespace: optimal-security
+data:
+  agent.yaml: |
+    api_gateway:
+      url: "https://api.optimal-platform.com"
+      auth_token: "${OPTIMAL_API_TOKEN}"
+      heartbeat_interval: 30
+      timeout: 30
+
+    scanning:
+      interval_seconds: 60
+      max_concurrent_scans: 5
+      scan_timeout: 300
+      real_time_monitoring: true
+      enabled_scans:
+        - vulnerability
+        - compliance
+        - network
+        - behavior
+
+    containers:
+      monitor_all: true
+      exclude_patterns:
+        - "pause"
+        - "kube-proxy"
+        - "kubelet"
+        - "coredns"
+        - "calico"
+        - "flannel"
+      include_patterns:
+        - "*"
+      scan_on_start: true
+      scan_on_stop: true
+
+    vulnerability:
+      enabled: true
+      scan_interval: 300
+      tools:
+        - trivy
+        - syft
+      severity_threshold: "medium"
+      auto_remediate: false
+
+    compliance:
+      enabled: true
+      frameworks:
+        - cis
+        - nist
+        - pci
+      scan_interval: 1800
+      auto_remediate: false
+
+    network:
+      enabled: true
+      monitor_connections: true
+      monitor_traffic: true
+      scan_interval: 30
+      alert_thresholds:
+        high_bandwidth: 100000000  # 100MB
+        suspicious_connections: 10
+
+    behavior:
+      enabled: true
+      monitor_processes: true
+      monitor_filesystem: true
+      scan_interval: 60
+      alert_thresholds:
+        high_cpu: 80
+        high_memory: 80
+        high_disk: 90
+
+    security_policies:
+      max_critical_vulnerabilities: 0
+      max_high_vulnerabilities: 3
+      max_medium_vulnerabilities: 10
+      block_on_critical: true
+      require_sbom: true
+      monitor_privileged_containers: true
+      alert_on_privilege_escalation: true
+
+    reporting:
+      real_time_alerts: true
+      dashboard_updates: true
+      compliance_reporting: true
+      anomaly_detection: true
+      log_level: "INFO"

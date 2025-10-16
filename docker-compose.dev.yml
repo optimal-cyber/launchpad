@@ -1,0 +1,253 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=optimal_platform
+      - POSTGRES_USER=optimal_user
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optimal_user -d optimal_platform"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # API Gateway
+  api-gateway:
+    build: 
+      context: ./apps/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+    volumes:
+      - ./data:/app/data
+      - ./apps/api-gateway:/app
+    networks:
+      - optimal-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Next.js Portal (Development)
+  portal:
+    build: 
+      context: ./apps/portal
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NODE_ENV=production
+    networks:
+      - optimal-network
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # SBOM Service
+  sbom-service:
+    build: 
+      context: ./services/sbom-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+    volumes:
+      - ./data:/app/data
+      - ./services/sbom-service:/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Vulnerability Service
+  vuln-service:
+    build: 
+      context: ./services/vuln-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+    volumes:
+      - ./data:/app/data
+      - ./services/vuln-service:/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # GitLab Listener
+  gitlab-listener:
+    build: 
+      context: ./integrations/gitlab-listener
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - SBOM_SERVICE_URL=http://sbom-service:8000
+      - VULN_SERVICE_URL=http://vuln-service:8000
+      - ENVIRONMENT=development
+    volumes:
+      - ./data:/app/data
+      - ./integrations/gitlab-listener:/app
+    depends_on:
+      - sbom-service
+      - vuln-service
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Worker Service
+  worker:
+    build: 
+      context: ./services/worker
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+    volumes:
+      - ./services/worker:/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - optimal-network
+    restart: unless-stopped
+
+  # Runtime Security Agent (Mock for local development)
+  runtime-agent:
+    build: 
+      context: ./agents/runtime-security-agent
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - OPTIMAL_API_ENDPOINT=http://api-gateway:8000
+      - OPTIMAL_API_TOKEN=dev-token
+      - CLUSTER_ID=local-dev
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./agents/runtime-security-agent:/app
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    privileged: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - optimal-network
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - optimal-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  optimal-network:
+    driver: bridge

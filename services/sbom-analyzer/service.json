@@ -1,0 +1,69 @@
+{
+  "name": "sbom-analyzer",
+  "version": "1.0.0",
+  "description": "SBOM analysis and vulnerability correlation service",
+  "language": "python",
+  "framework": "fastapi",
+  "endpoints": {
+    "POST /sbom/upload": "Upload SBOM for analysis",
+    "GET /sbom/{repo}": "Get SBOM analysis report",
+    "GET /sbom/{repo}/components": "Get component breakdown",
+    "GET /sbom/{repo}/vulnerabilities": "Get vulnerabilities in SBOM",
+    "POST /sbom/scan": "Trigger new SBOM scan",
+    "GET /sbom/stats": "Get SBOM statistics"
+  },
+  "supported_formats": [
+    "CycloneDX (preferred)",
+    "SPDX",
+    "SWID",
+    "JSON",
+    "XML"
+  ],
+  "analysis_tools": [
+    {
+      "name": "Syft",
+      "purpose": "SBOM generation and component detection",
+      "version": "latest"
+    },
+    {
+      "name": "Grype",
+      "purpose": "Vulnerability scanning",
+      "version": "latest"
+    },
+    {
+      "name": "Trivy",
+      "purpose": "Container and dependency scanning",
+      "version": "latest"
+    }
+  ],
+  "data_sources": [
+    "PostgreSQL for SBOM metadata storage",
+    "Redis for caching",
+    "S3 for SBOM file storage",
+    "Elasticsearch for search"
+  ],
+  "features": [
+    "Multi-format SBOM parsing",
+    "Component vulnerability correlation",
+    "License compliance checking",
+    "Dependency tree visualization",
+    "Automated remediation suggestions",
+    "SBOM versioning and history"
+  ],
+  "integrations": [
+    "GitLab CI/CD",
+    "GitHub Actions",
+    "Jenkins",
+    "Argo CD",
+    "Vulnerability databases (NVD, OSV)"
+  ],
+  "dependencies": [
+    "fastapi",
+    "sqlalchemy",
+    "boto3",
+    "redis",
+    "elasticsearch",
+    "cyclonedx-python-lib",
+    "spdx-tools"
+  ]
+} 

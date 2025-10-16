@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Keycloak
+  keycloak-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Keycloak SSO Server
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HTTP_ENABLED: true
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+    ports:
+      - "8080:8080"
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    command: start-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optimal Platform API Gateway
+  api-gateway:
+    image: optimal-platform-api-gateway:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://optimal:secure_password@postgres:5432/optimal_platform
+      - REDIS_URL=redis://redis:6379
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - GITLAB_BASE_URL=https://gitlab.com
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=optimal-platform
+    networks:
+      - optimal-network
+    depends_on:
+      - postgres
+      - redis
+      - keycloak
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optimal Platform Portal
+  portal:
+    image: optimal-platform-portal:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://api-gateway:8000
+      - NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
+      - NEXT_PUBLIC_KEYCLOAK_REALM=optimal-platform
+      - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=optimal-platform-frontend
+      - NEXT_PUBLIC_KEYCLOAK_REDIRECT_URI=http://localhost:3000/auth/callback
+      - NODE_ENV=production
+    networks:
+      - optimal-network
+    depends_on:
+      - api-gateway
+      - keycloak
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=optimal_platform
+      - POSTGRES_USER=optimal
+      - POSTGRES_PASSWORD=secure_password
+    volumes:
+      - optimal_postgres_data:/var/lib/postgresql/data
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optimal"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - optimal-network
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
+      - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana-sso
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=your-grafana-client-secret
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=http://keycloak:8080/realms/optimal-platform/protocol/openid-connect/auth
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=http://keycloak:8080/realms/optimal-platform/protocol/openid-connect/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL=http://keycloak:8080/realms/optimal-platform/protocol/openid-connect/userinfo
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - optimal-network
+    depends_on:
+      - keycloak
+    restart: unless-stopped
+
+  # Runtime Security Agent
+  runtime-agent:
+    image: optimal-platform-runtime-agent:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - API_GATEWAY_URL=http://api-gateway:8000
+      - CLUSTER_NAME=local
+    networks:
+      - optimal-network
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  optimal-network:
+    driver: bridge
+
+volumes:
+  optimal_postgres_data:
+  keycloak_postgres_data:
+  grafana_data:
