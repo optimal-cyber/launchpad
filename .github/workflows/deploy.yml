@@ -166,10 +166,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine build context
+        id: context
+        run: |
+          case "${{ matrix.service }}" in
+            portal) echo "path=apps/portal" >> $GITHUB_OUTPUT ;;
+            api-gateway) echo "path=apps/api-gateway" >> $GITHUB_OUTPUT ;;
+            gitlab-listener) echo "path=integrations/gitlab-listener" >> $GITHUB_OUTPUT ;;
+            *) echo "path=services/${{ matrix.service }}" >> $GITHUB_OUTPUT ;;
+          esac
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ matrix.service == 'portal' && 'apps/portal' || matrix.service == 'api-gateway' && 'apps/api-gateway' || format('services/{0}', matrix.service) }}
+          context: ./${{ steps.context.outputs.path }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
