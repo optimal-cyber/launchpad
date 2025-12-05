@@ -1,0 +1,6 @@
+# Optimal Scanner Agent Dependencies
+aiohttp>=3.9.0
+docker>=6.1.0
+pyyaml>=6.0.0
+click>=8.1.0
+

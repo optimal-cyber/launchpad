@@ -12,7 +12,8 @@ import {
   GitBranch,
   Shield,
   TrendingUp,
-  Zap
+  Zap,
+  Boxes
 } from 'lucide-react';
 
 interface NavItem {
@@ -45,6 +46,12 @@ interface NavItem {
       href: '/enterprise',
       icon: LayoutDashboard,
       badge: '5',
+    },
+    {
+      name: 'Module Registry',
+      href: '/modules',
+      icon: Boxes,
+      badge: 'NEW',
     },
     {
       name: 'Security Agents',

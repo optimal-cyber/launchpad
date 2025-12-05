@@ -1,0 +1,110 @@
+# =============================================================================
+# Optimal Platform - Staging Environment Values
+# =============================================================================
+
+global:
+  environment: "staging"
+  domain: "staging.gooptimal.io"
+
+portal:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+  ingress:
+    hosts:
+      - host: staging-portal.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: staging-portal-tls
+        hosts:
+          - staging-portal.gooptimal.io
+  env:
+    NEXT_PUBLIC_API_BASE: "https://staging-api.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_URL: "https://staging-keycloak.gooptimal.io"
+
+apiGateway:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+  ingress:
+    hosts:
+      - host: staging-api.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: staging-api-tls
+        hosts:
+          - staging-api.gooptimal.io
+
+sbomService:
+  replicaCount: 2
+
+vulnService:
+  replicaCount: 2
+
+worker:
+  replicaCount: 2
+
+postgresql:
+  primary:
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+    persistence:
+      size: 20Gi
+
+redis:
+  master:
+    persistence:
+      size: 5Gi
+  replica:
+    replicaCount: 1
+
+keycloak:
+  ingress:
+    hostname: staging-keycloak.gooptimal.io
+
+monitoring:
+  prometheus:
+    retention: 7d
+    storageSize: 30Gi
+  grafana:
+    ingress:
+      hosts:
+        - staging-observability.gooptimal.io
+
+securityAgent:
+  enabled: true
+
+networkPolicies:
+  enabled: true
+
+podDisruptionBudgets:
+  enabled: true
+  minAvailable: 1
+

@@ -1,0 +1,262 @@
+{{- if .Values.sbomService.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-sbom-service
+  labels:
+    {{- include "optimal-platform.sbomService.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.sbomService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "optimal-platform.sbomService.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "optimal-platform.sbomService.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "optimal-platform.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: sbom-service
+          image: "{{ include "optimal-platform.imageRegistry" . }}{{ .Values.sbomService.image.repository }}:{{ .Values.sbomService.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.sbomService.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: redis-url
+          resources:
+            {{- toYaml .Values.sbomService.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-sbom-service
+  labels:
+    {{- include "optimal-platform.sbomService.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.sbomService.service.type }}
+  ports:
+    - port: {{ .Values.sbomService.service.port }}
+      targetPort: http
+      name: http
+  selector:
+    {{- include "optimal-platform.sbomService.selectorLabels" . | nindent 4 }}
+{{- end }}
+
+{{- if .Values.vulnService.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-vuln-service
+  labels:
+    {{- include "optimal-platform.vulnService.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.vulnService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "optimal-platform.vulnService.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "optimal-platform.vulnService.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "optimal-platform.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: vuln-service
+          image: "{{ include "optimal-platform.imageRegistry" . }}{{ .Values.vulnService.image.repository }}:{{ .Values.vulnService.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.vulnService.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: redis-url
+          resources:
+            {{- toYaml .Values.vulnService.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-vuln-service
+  labels:
+    {{- include "optimal-platform.vulnService.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.vulnService.service.type }}
+  ports:
+    - port: {{ .Values.vulnService.service.port }}
+      targetPort: http
+      name: http
+  selector:
+    {{- include "optimal-platform.vulnService.selectorLabels" . | nindent 4 }}
+{{- end }}
+
+{{- if .Values.worker.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-worker
+  labels:
+    {{- include "optimal-platform.worker.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "optimal-platform.worker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "optimal-platform.worker.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "optimal-platform.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: worker
+          image: "{{ include "optimal-platform.imageRegistry" . }}{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: redis-url
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+{{- end }}
+
+{{- if .Values.gitlabListener.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-gitlab-listener
+  labels:
+    {{- include "optimal-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gitlab-listener
+spec:
+  replicas: {{ .Values.gitlabListener.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "optimal-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gitlab-listener
+  template:
+    metadata:
+      labels:
+        {{- include "optimal-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gitlab-listener
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "optimal-platform.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: gitlab-listener
+          image: "{{ include "optimal-platform.imageRegistry" . }}{{ .Values.gitlabListener.image.repository }}:{{ .Values.gitlabListener.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.gitlabListener.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: GITLAB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: gitlab-token
+            - name: SBOM_SERVICE_URL
+              value: {{ .Values.gitlabListener.env.SBOM_SERVICE_URL | quote }}
+            - name: VULN_SERVICE_URL
+              value: {{ .Values.gitlabListener.env.VULN_SERVICE_URL | quote }}
+          resources:
+            {{- toYaml .Values.gitlabListener.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-gitlab-listener
+  labels:
+    {{- include "optimal-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gitlab-listener
+spec:
+  type: {{ .Values.gitlabListener.service.type }}
+  ports:
+    - port: {{ .Values.gitlabListener.service.port }}
+      targetPort: http
+      name: http
+  selector:
+    {{- include "optimal-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gitlab-listener
+{{- end }}
+

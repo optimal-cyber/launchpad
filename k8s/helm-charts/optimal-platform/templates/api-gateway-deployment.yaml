@@ -1,0 +1,171 @@
+{{- if .Values.apiGateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-api-gateway
+  labels:
+    {{- include "optimal-platform.apiGateway.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.apiGateway.autoscaling.enabled }}
+  replicas: {{ .Values.apiGateway.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "optimal-platform.apiGateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "optimal-platform.apiGateway.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "optimal-platform.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: api-gateway
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          image: "{{ include "optimal-platform.imageRegistry" . }}{{ .Values.apiGateway.image.repository }}:{{ .Values.apiGateway.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.apiGateway.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: redis-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "optimal-platform.fullname" . }}-secrets
+                  key: jwt-secret
+            {{- range $key, $value := .Values.apiGateway.env }}
+            {{- if and (ne $key "DATABASE_URL") (ne $key "REDIS_URL") (ne $key "JWT_SECRET") }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.apiGateway.resources | nindent 12 }}
+      {{- with .Values.apiGateway.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.apiGateway.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.apiGateway.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-api-gateway
+  labels:
+    {{- include "optimal-platform.apiGateway.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.apiGateway.service.type }}
+  ports:
+    - port: {{ .Values.apiGateway.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "optimal-platform.apiGateway.selectorLabels" . | nindent 4 }}
+{{- if .Values.apiGateway.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-api-gateway
+  labels:
+    {{- include "optimal-platform.apiGateway.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "optimal-platform.fullname" . }}-api-gateway
+  minReplicas: {{ .Values.apiGateway.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.apiGateway.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.apiGateway.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if .Values.apiGateway.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-api-gateway
+  labels:
+    {{- include "optimal-platform.apiGateway.labels" . | nindent 4 }}
+  {{- with .Values.apiGateway.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.apiGateway.ingress.className }}
+  {{- if .Values.apiGateway.ingress.tls }}
+  tls:
+    {{- range .Values.apiGateway.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.apiGateway.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "optimal-platform.fullname" $ }}-api-gateway
+                port:
+                  number: {{ $.Values.apiGateway.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
+

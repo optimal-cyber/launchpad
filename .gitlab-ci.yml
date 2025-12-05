@@ -1,0 +1,286 @@
+# =============================================================================
+# Optimal Platform - CI/CD Pipeline (GitLab CI)
+# Enterprise-grade deployment pipeline for AWS and GCP
+# =============================================================================
+
+stages:
+  - test
+  - security
+  - build
+  - deploy-dev
+  - deploy-staging
+  - deploy-production
+
+variables:
+  PROJECT_NAME: optimal-platform
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  HELM_VERSION: "3.13.0"
+  KUBERNETES_VERSION: "1.28"
+  
+  # AWS Configuration
+  AWS_REGION: us-east-1
+  
+  # GCP Configuration
+  GCP_REGION: us-central1
+
+# =============================================================================
+# Templates
+# =============================================================================
+
+.docker_build_template: &docker_build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/$SERVICE:$CI_COMMIT_SHA -f $DOCKERFILE_PATH .
+    - docker push $CI_REGISTRY_IMAGE/$SERVICE:$CI_COMMIT_SHA
+    - docker tag $CI_REGISTRY_IMAGE/$SERVICE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE/$SERVICE:latest
+    - docker push $CI_REGISTRY_IMAGE/$SERVICE:latest
+
+.helm_deploy_template: &helm_deploy
+  image: alpine/helm:$HELM_VERSION
+  before_script:
+    - apk add --no-cache curl bash
+    - helm dependency update k8s/helm-charts/optimal-platform
+  script:
+    - |
+      helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
+        --namespace optimal-system \
+        --create-namespace \
+        -f k8s/helm-charts/optimal-platform/values.yaml \
+        -f k8s/helm-charts/optimal-platform/values-${ENVIRONMENT}.yaml \
+        --set global.imageTag=${CI_COMMIT_SHA} \
+        --wait --timeout 10m
+
+# =============================================================================
+# Test Stage
+# =============================================================================
+
+lint-portal:
+  stage: test
+  image: node:20-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-portal
+    paths:
+      - apps/portal/node_modules/
+  script:
+    - cd apps/portal
+    - npm ci
+    - npm run lint
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+lint-api:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - cd apps/api-gateway
+    - pip install flake8
+    - flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+# =============================================================================
+# Security Stage
+# =============================================================================
+
+security-scan:
+  stage: security
+  image: 
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy fs --severity HIGH,CRITICAL --exit-code 0 --format sarif --output trivy-results.sarif .
+  artifacts:
+    reports:
+      sast: trivy-results.sarif
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+
+# =============================================================================
+# Build Stage
+# =============================================================================
+
+build-portal:
+  stage: build
+  <<: *docker_build
+  variables:
+    SERVICE: portal
+    DOCKERFILE_PATH: apps/portal/Dockerfile
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_TAG'
+
+build-api-gateway:
+  stage: build
+  <<: *docker_build
+  variables:
+    SERVICE: api-gateway
+    DOCKERFILE_PATH: apps/api-gateway/Dockerfile
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_TAG'
+
+build-sbom-service:
+  stage: build
+  <<: *docker_build
+  variables:
+    SERVICE: sbom-service
+    DOCKERFILE_PATH: services/sbom-service/Dockerfile
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_TAG'
+
+build-vuln-service:
+  stage: build
+  <<: *docker_build
+  variables:
+    SERVICE: vuln-service
+    DOCKERFILE_PATH: services/vuln-service/Dockerfile
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_TAG'
+
+build-worker:
+  stage: build
+  <<: *docker_build
+  variables:
+    SERVICE: worker
+    DOCKERFILE_PATH: services/worker/Dockerfile
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_TAG'
+
+# =============================================================================
+# Deploy to Development (AWS)
+# =============================================================================
+
+deploy-dev-aws:
+  stage: deploy-dev
+  <<: *helm_deploy
+  variables:
+    ENVIRONMENT: development
+  before_script:
+    - apk add --no-cache curl bash aws-cli
+    - aws eks update-kubeconfig --name optimal-development --region $AWS_REGION
+    - helm dependency update k8s/helm-charts/optimal-platform
+  environment:
+    name: development
+    url: https://dev-portal.gooptimal.io
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+  needs:
+    - build-portal
+    - build-api-gateway
+
+# =============================================================================
+# Deploy to Staging (AWS)
+# =============================================================================
+
+deploy-staging-aws:
+  stage: deploy-staging
+  <<: *helm_deploy
+  variables:
+    ENVIRONMENT: staging
+  before_script:
+    - apk add --no-cache curl bash aws-cli
+    - aws eks update-kubeconfig --name optimal-staging --region $AWS_REGION
+    - helm dependency update k8s/helm-charts/optimal-platform
+  environment:
+    name: staging
+    url: https://staging-portal.gooptimal.io
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  needs:
+    - build-portal
+    - build-api-gateway
+    - build-sbom-service
+    - build-vuln-service
+    - build-worker
+
+# =============================================================================
+# Deploy to Production (AWS) - Manual
+# =============================================================================
+
+deploy-production-aws:
+  stage: deploy-production
+  <<: *helm_deploy
+  variables:
+    ENVIRONMENT: production
+  before_script:
+    - apk add --no-cache curl bash aws-cli
+    - aws eks update-kubeconfig --name optimal-production --region $AWS_REGION
+    - helm dependency update k8s/helm-charts/optimal-platform
+  environment:
+    name: production
+    url: https://portal.gooptimal.io
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual
+  needs:
+    - build-portal
+    - build-api-gateway
+    - build-sbom-service
+    - build-vuln-service
+    - build-worker
+
+# =============================================================================
+# Deploy to Development (GCP)
+# =============================================================================
+
+deploy-dev-gcp:
+  stage: deploy-dev
+  <<: *helm_deploy
+  variables:
+    ENVIRONMENT: development
+  before_script:
+    - apk add --no-cache curl bash python3
+    - pip3 install google-cloud-sdk
+    - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+    - gcloud container clusters get-credentials optimal-development --region $GCP_REGION --project $GCP_PROJECT
+    - helm dependency update k8s/helm-charts/optimal-platform
+  environment:
+    name: development-gcp
+    url: https://dev-portal.gooptimal.io
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop" && $DEPLOY_TO_GCP == "true"'
+  needs:
+    - build-portal
+    - build-api-gateway
+
+# =============================================================================
+# Deploy to Production (GCP) - Manual
+# =============================================================================
+
+deploy-production-gcp:
+  stage: deploy-production
+  <<: *helm_deploy
+  variables:
+    ENVIRONMENT: production
+  before_script:
+    - apk add --no-cache curl bash python3
+    - pip3 install google-cloud-sdk
+    - echo $GCP_SA_KEY | base64 -d > /tmp/gcp-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+    - gcloud container clusters get-credentials optimal-production --region $GCP_REGION --project $GCP_PROJECT
+    - helm dependency update k8s/helm-charts/optimal-platform
+  environment:
+    name: production-gcp
+    url: https://portal.gooptimal.io
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/ && $DEPLOY_TO_GCP == "true"'
+      when: manual
+  needs:
+    - build-portal
+    - build-api-gateway
+    - build-sbom-service
+    - build-vuln-service
+    - build-worker
+

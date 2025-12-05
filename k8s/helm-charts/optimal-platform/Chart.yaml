@@ -1,0 +1,41 @@
+apiVersion: v2
+name: optimal-platform
+description: Optimal Platform - Enterprise DevSecOps Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+keywords:
+  - devsecops
+  - security
+  - vulnerability-management
+  - sbom
+  - compliance
+  - kubernetes
+
+home: https://gooptimal.io
+sources:
+  - https://github.com/optimal-platform/optimal-platform
+
+maintainers:
+  - name: Optimal Platform Team
+    email: support@gooptimal.io
+
+dependencies:
+  - name: postgresql
+    version: "13.2.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "18.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: keycloak
+    version: "18.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: keycloak.enabled
+
+annotations:
+  category: Security
+  licenses: Apache-2.0
+

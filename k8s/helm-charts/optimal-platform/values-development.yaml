@@ -1,0 +1,129 @@
+# =============================================================================
+# Optimal Platform - Development Environment Values
+# =============================================================================
+
+global:
+  environment: "development"
+  domain: "dev.gooptimal.io"
+
+# Development uses smaller replicas
+portal:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+  ingress:
+    hosts:
+      - host: dev-portal.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: dev-portal-tls
+        hosts:
+          - dev-portal.gooptimal.io
+  env:
+    NEXT_PUBLIC_API_BASE: "https://dev-api.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_URL: "https://dev-keycloak.gooptimal.io"
+
+apiGateway:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+  ingress:
+    hosts:
+      - host: dev-api.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: dev-api-tls
+        hosts:
+          - dev-api.gooptimal.io
+
+sbomService:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+vulnService:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+worker:
+  replicaCount: 1
+
+# Development database - smaller resources
+postgresql:
+  primary:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    persistence:
+      size: 5Gi
+
+redis:
+  master:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    persistence:
+      size: 1Gi
+  replica:
+    replicaCount: 0
+
+keycloak:
+  ingress:
+    hostname: dev-keycloak.gooptimal.io
+
+monitoring:
+  prometheus:
+    retention: 3d
+    storageSize: 10Gi
+  grafana:
+    ingress:
+      hosts:
+        - dev-observability.gooptimal.io
+
+# Disable some features in development
+securityAgent:
+  enabled: false
+
+networkPolicies:
+  enabled: false
+
+podDisruptionBudgets:
+  enabled: false
+

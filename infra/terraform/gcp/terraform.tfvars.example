@@ -1,0 +1,71 @@
+# =============================================================================
+# Optimal Platform - GCP Terraform Variables Example
+# Copy this file to terraform.tfvars and customize for your environment
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Configuration (REQUIRED)
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"  # REQUIRED: Your GCP project ID
+region      = "us-central1"
+zones       = ["us-central1-a", "us-central1-b", "us-central1-c"]
+environment = "development"  # development, staging, or production
+owner       = "your-team-name"
+
+# -----------------------------------------------------------------------------
+# Kubernetes Configuration
+# -----------------------------------------------------------------------------
+
+kubernetes_version = "1.28"
+
+# -----------------------------------------------------------------------------
+# Node Pool Configuration - Development
+# For development environments, smaller instances are sufficient
+# -----------------------------------------------------------------------------
+
+# System nodes (for platform services)
+system_node_machine_type = "e2-medium"
+system_node_min_count    = 1
+system_node_max_count    = 3
+
+# Application nodes (for workloads)
+app_node_machine_type = "e2-standard-2"
+app_node_min_count    = 1
+app_node_max_count    = 5
+
+# -----------------------------------------------------------------------------
+# Node Pool Configuration - Production (uncomment for production)
+# Production environments require larger, more resilient instances
+# -----------------------------------------------------------------------------
+
+# system_node_machine_type = "e2-standard-4"
+# system_node_min_count    = 2
+# system_node_max_count    = 5
+
+# app_node_machine_type = "e2-standard-8"
+# app_node_min_count    = 3
+# app_node_max_count    = 20
+
+# -----------------------------------------------------------------------------
+# Database Configuration
+# -----------------------------------------------------------------------------
+
+enable_cloud_sql = true
+cloud_sql_tier   = "db-f1-micro"  # Use db-custom-2-7680 for production
+db_password      = "your-secure-password-here"  # Use a strong password!
+
+# -----------------------------------------------------------------------------
+# Cache Configuration
+# -----------------------------------------------------------------------------
+
+enable_memorystore   = true
+redis_memory_size_gb = 1  # Use 5+ GB for production
+
+# -----------------------------------------------------------------------------
+# Domain Configuration
+# Set your domain name for SSL certificates
+# -----------------------------------------------------------------------------
+
+domain_name = ""  # e.g., "gooptimal.io"
+

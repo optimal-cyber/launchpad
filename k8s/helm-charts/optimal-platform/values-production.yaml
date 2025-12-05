@@ -1,0 +1,195 @@
+# =============================================================================
+# Optimal Platform - Production Environment Values
+# =============================================================================
+
+global:
+  environment: "production"
+  domain: "gooptimal.io"
+
+portal:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
+  ingress:
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    hosts:
+      - host: portal.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: portal-tls
+        hosts:
+          - portal.gooptimal.io
+  env:
+    NEXT_PUBLIC_API_BASE: "https://api.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_URL: "https://keycloak.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_REALM: "optimal"
+    NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "optimal-portal"
+
+apiGateway:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 30
+    targetCPUUtilizationPercentage: 60
+  ingress:
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "200m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/rate-limit: "500"
+      nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    hosts:
+      - host: api.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-tls
+        hosts:
+          - api.gooptimal.io
+
+sbomService:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+vulnService:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+gitlabListener:
+  replicaCount: 2
+
+worker:
+  replicaCount: 5
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+securityAgent:
+  enabled: true
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Production database configuration
+# Note: For production, consider using managed databases (RDS/Cloud SQL)
+postgresql:
+  enabled: false  # Use external managed database
+
+redis:
+  enabled: false  # Use external managed cache (ElastiCache/Memorystore)
+
+# External database configuration (for managed databases)
+externalDatabase:
+  host: ""  # Set via secrets
+  port: 5432
+  database: optimal_platform
+  user: optimal_admin
+  password: ""  # Set via secrets
+
+externalRedis:
+  host: ""  # Set via secrets
+  port: 6379
+  password: ""  # Set via secrets
+
+keycloak:
+  enabled: true
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  ingress:
+    hostname: keycloak.gooptimal.io
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  postgresql:
+    enabled: false
+
+monitoring:
+  enabled: true
+  prometheus:
+    retention: 30d
+    storageSize: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 2Gi
+  grafana:
+    ingress:
+      hosts:
+        - observability.gooptimal.io
+      tls:
+        - secretName: grafana-tls
+          hosts:
+            - observability.gooptimal.io
+
+networkPolicies:
+  enabled: true
+
+podSecurityStandards:
+  enabled: true
+  level: restricted
+
+podDisruptionBudgets:
+  enabled: true
+  minAvailable: 2
+
+# Service Account with cloud-specific annotations
+serviceAccount:
+  create: true
+  name: "optimal-platform"
+  annotations:
+    # AWS: eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/optimal-platform
+    # GCP: iam.gke.io/gcp-service-account: optimal-platform@PROJECT.iam.gserviceaccount.com
+

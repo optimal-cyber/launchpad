@@ -1,0 +1,388 @@
+# =============================================================================
+# Optimal Platform Helm Chart Values
+# Enterprise DevSecOps Platform
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Configuration
+# -----------------------------------------------------------------------------
+global:
+  # Image registry (override for private registries)
+  imageRegistry: ""
+  # Image pull secrets
+  imagePullSecrets: []
+  # Storage class for persistent volumes
+  storageClass: ""
+  # Domain configuration
+  domain: "gooptimal.io"
+  # Environment
+  environment: "development"
+
+# -----------------------------------------------------------------------------
+# Portal (Next.js Frontend)
+# -----------------------------------------------------------------------------
+portal:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: optimal-platform/portal
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    hosts:
+      - host: portal.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: portal-tls
+        hosts:
+          - portal.gooptimal.io
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  
+  env:
+    NEXT_PUBLIC_API_BASE: "https://api.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_URL: "https://keycloak.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_REALM: "optimal"
+    NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "optimal-portal"
+
+# -----------------------------------------------------------------------------
+# API Gateway (FastAPI)
+# -----------------------------------------------------------------------------
+apiGateway:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: optimal-platform/api-gateway
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    hosts:
+      - host: api.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-tls
+        hosts:
+          - api.gooptimal.io
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+  
+  env:
+    DATABASE_URL: ""
+    REDIS_URL: ""
+    JWT_SECRET: ""
+
+# -----------------------------------------------------------------------------
+# SBOM Service
+# -----------------------------------------------------------------------------
+sbomService:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: optimal-platform/sbom-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  env:
+    DATABASE_URL: ""
+    REDIS_URL: ""
+
+# -----------------------------------------------------------------------------
+# Vulnerability Service
+# -----------------------------------------------------------------------------
+vulnService:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: optimal-platform/vuln-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  env:
+    DATABASE_URL: ""
+    REDIS_URL: ""
+
+# -----------------------------------------------------------------------------
+# GitLab Listener
+# -----------------------------------------------------------------------------
+gitlabListener:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: optimal-platform/gitlab-listener
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  
+  env:
+    GITLAB_TOKEN: ""
+    SBOM_SERVICE_URL: "http://sbom-service:8000"
+    VULN_SERVICE_URL: "http://vuln-service:8000"
+
+# -----------------------------------------------------------------------------
+# Worker Service
+# -----------------------------------------------------------------------------
+worker:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: optimal-platform/worker
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  env:
+    DATABASE_URL: ""
+    REDIS_URL: ""
+
+# -----------------------------------------------------------------------------
+# Runtime Security Agent (DaemonSet)
+# -----------------------------------------------------------------------------
+securityAgent:
+  enabled: true
+  
+  image:
+    repository: optimal-platform/runtime-security-agent
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  
+  tolerations:
+    - operator: Exists
+  
+  env:
+    API_GATEWAY_URL: "http://api-gateway:8000"
+
+# -----------------------------------------------------------------------------
+# PostgreSQL (Bitnami)
+# -----------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""
+    username: optimal_user
+    password: ""
+    database: optimal_platform
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+  metrics:
+    enabled: true
+
+# -----------------------------------------------------------------------------
+# Redis (Bitnami)
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+  replica:
+    replicaCount: 1
+    persistence:
+      enabled: true
+      size: 5Gi
+  metrics:
+    enabled: true
+
+# -----------------------------------------------------------------------------
+# Keycloak (Bitnami)
+# -----------------------------------------------------------------------------
+keycloak:
+  enabled: true
+  auth:
+    adminUser: admin
+    adminPassword: ""
+  ingress:
+    enabled: true
+    ingressClassName: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hostname: keycloak.gooptimal.io
+    tls: true
+  postgresql:
+    enabled: false
+  externalDatabase:
+    host: ""
+    port: 5432
+    database: keycloak
+    user: optimal_user
+    password: ""
+
+# -----------------------------------------------------------------------------
+# Monitoring Stack
+# -----------------------------------------------------------------------------
+monitoring:
+  enabled: true
+  
+  prometheus:
+    enabled: true
+    retention: 15d
+    storageSize: 50Gi
+  
+  grafana:
+    enabled: true
+    adminPassword: ""
+    ingress:
+      enabled: true
+      hosts:
+        - observability.gooptimal.io
+      tls:
+        - secretName: grafana-tls
+          hosts:
+            - observability.gooptimal.io
+
+# -----------------------------------------------------------------------------
+# Ingress Controller
+# -----------------------------------------------------------------------------
+ingressController:
+  enabled: true
+  controller:
+    replicaCount: 2
+    service:
+      type: LoadBalancer
+      annotations: {}
+
+# -----------------------------------------------------------------------------
+# Cert Manager
+# -----------------------------------------------------------------------------
+certManager:
+  enabled: true
+  email: "admin@gooptimal.io"
+  
+# -----------------------------------------------------------------------------
+# Network Policies
+# -----------------------------------------------------------------------------
+networkPolicies:
+  enabled: true
+
+# -----------------------------------------------------------------------------
+# Pod Security Standards
+# -----------------------------------------------------------------------------
+podSecurityStandards:
+  enabled: true
+  level: restricted
+
+# -----------------------------------------------------------------------------
+# Service Account
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: "optimal-platform"
+  annotations: {}
+
+# -----------------------------------------------------------------------------
+# Pod Disruption Budgets
+# -----------------------------------------------------------------------------
+podDisruptionBudgets:
+  enabled: true
+  minAvailable: 1
+

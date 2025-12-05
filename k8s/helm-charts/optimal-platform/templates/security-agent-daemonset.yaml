@@ -1,0 +1,71 @@
+{{- if .Values.securityAgent.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "optimal-platform.fullname" . }}-security-agent
+  labels:
+    {{- include "optimal-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-agent
+spec:
+  selector:
+    matchLabels:
+      {{- include "optimal-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: security-agent
+  template:
+    metadata:
+      labels:
+        {{- include "optimal-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: security-agent
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "optimal-platform.serviceAccountName" . }}
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: security-agent
+          image: "{{ include "optimal-platform.imageRegistry" . }}{{ .Values.securityAgent.image.repository }}:{{ .Values.securityAgent.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.securityAgent.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          env:
+            - name: API_GATEWAY_URL
+              value: {{ .Values.securityAgent.env.API_GATEWAY_URL | quote }}
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            {{- toYaml .Values.securityAgent.resources | nindent 12 }}
+          volumeMounts:
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+              readOnly: true
+            - name: containerd-socket
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+      {{- with .Values.securityAgent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: containerd-socket
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+        - name: proc
+          hostPath:
+            path: /proc
+            type: Directory
+{{- end }}
+

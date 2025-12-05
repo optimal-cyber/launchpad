@@ -1,0 +1,75 @@
+# =============================================================================
+# Optimal Platform - AWS Terraform Variables Example
+# Copy this file to terraform.tfvars and customize for your environment
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Configuration
+# -----------------------------------------------------------------------------
+
+aws_region  = "us-east-1"
+environment = "development"  # development, staging, or production
+owner       = "your-team-name"
+
+# -----------------------------------------------------------------------------
+# Kubernetes Configuration
+# -----------------------------------------------------------------------------
+
+kubernetes_version = "1.28"
+
+# -----------------------------------------------------------------------------
+# Node Group Configuration - Development
+# For development environments, smaller instances are sufficient
+# -----------------------------------------------------------------------------
+
+# System nodes (for platform services)
+system_node_instance_types = ["t3.medium"]
+system_node_min_size       = 1
+system_node_max_size       = 3
+system_node_desired_size   = 2
+
+# Application nodes (for workloads)
+app_node_instance_types = ["t3.large"]
+app_node_min_size       = 1
+app_node_max_size       = 5
+app_node_desired_size   = 2
+
+# -----------------------------------------------------------------------------
+# Node Group Configuration - Production (uncomment for production)
+# Production environments require larger, more resilient instances
+# -----------------------------------------------------------------------------
+
+# system_node_instance_types = ["m5.large"]
+# system_node_min_size       = 2
+# system_node_max_size       = 5
+# system_node_desired_size   = 3
+
+# app_node_instance_types = ["m5.xlarge", "m5.2xlarge"]
+# app_node_min_size       = 3
+# app_node_max_size       = 20
+# app_node_desired_size   = 5
+
+# -----------------------------------------------------------------------------
+# Database Configuration
+# -----------------------------------------------------------------------------
+
+enable_rds                = true
+rds_instance_class        = "db.t3.medium"  # Use db.r5.large for production
+rds_allocated_storage     = 20
+rds_max_allocated_storage = 100
+
+# -----------------------------------------------------------------------------
+# Cache Configuration
+# -----------------------------------------------------------------------------
+
+enable_elasticache    = true
+elasticache_node_type = "cache.t3.micro"  # Use cache.r5.large for production
+
+# -----------------------------------------------------------------------------
+# Domain Configuration
+# Set your domain name for SSL certificates and DNS
+# -----------------------------------------------------------------------------
+
+domain_name = ""  # e.g., "gooptimal.io"
+use_route53 = false  # Set to true if using Route53 for DNS
+

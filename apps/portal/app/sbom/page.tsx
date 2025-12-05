@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { RefreshCw, Download, Eye, CheckCircle, XCircle } from 'lucide-react';
 
 interface SBOMComponent {
   id: string;
@@ -171,64 +172,62 @@ export default function SBOMPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Clean Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="apollo-header">
+        <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Software Bill of Materials</h1>
-              <p className="text-sm text-gray-600">Track and manage software components</p>
+            <h1 className="text-2xl font-semibold text-foreground">Software Bill of Materials</h1>
+            <p className="text-sm text-muted-foreground">Track and manage software components</p>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={loadSBOMComponents}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
+              <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </button>
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button className="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-card hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+              <Download className="h-4 w-4 mr-2" />
                 Export
               </button>
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Scan Summary Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{projectInfo.last_scan.total_scans}</div>
-              <div className="text-sm text-gray-600">Total Scans</div>
+      <div className="p-6">
+        {/* Scan Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="apollo-metric-card">
+            <div className="apollo-metric-value text-primary">{projectInfo.last_scan.total_scans}</div>
+            <div className="apollo-metric-label">Total Scans</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{projectInfo.last_scan.vulnerabilities_count}</div>
-              <div className="text-sm text-gray-600">Vulnerabilities</div>
+          <div className="apollo-metric-card">
+            <div className="apollo-metric-value text-red-500">{projectInfo.last_scan.vulnerabilities_count}</div>
+            <div className="apollo-metric-label">Vulnerabilities</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{projectInfo.last_scan.secrets_count}</div>
-              <div className="text-sm text-gray-600">Secrets Found</div>
+          <div className="apollo-metric-card">
+            <div className="apollo-metric-value text-yellow-500">{projectInfo.last_scan.secrets_count}</div>
+            <div className="apollo-metric-label">Secrets Found</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{formatDate(projectInfo.last_scan.timestamp)}</div>
-              <div className="text-sm text-gray-600">Last Scan</div>
-            </div>
+          <div className="apollo-metric-card">
+            <div className="apollo-metric-value text-green-500">{formatDate(projectInfo.last_scan.timestamp)}</div>
+            <div className="apollo-metric-label">Last Scan</div>
           </div>
         </div>
 
         {/* Project Info */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-medium text-gray-900">{projectInfo.name}</h3>
-              <p className="text-sm text-gray-600">{projectInfo.path}</p>
+              <h3 className="text-lg font-medium text-foreground">{projectInfo.name}</h3>
+              <p className="text-sm text-muted-foreground">{projectInfo.path}</p>
             </div>
             <Link
               href={`https://gitlab.com/${projectInfo.path}`}
               target="_blank"
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-3 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-card hover:bg-muted"
             >
               View in GitLab
             </Link>
@@ -236,57 +235,57 @@ export default function SBOMPage() {
         </div>
 
         {/* Software Components Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{components.length}</div>
-              <div className="text-sm text-gray-600">Total Components</div>
+              <div className="text-2xl font-bold text-primary">{components.length}</div>
+              <div className="text-sm text-muted-foreground">Total Components</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{components.filter(c => c.type === 'package').length}</div>
-              <div className="text-sm text-gray-600">Packages</div>
+              <div className="text-2xl font-bold text-green-500">{components.filter(c => c.type === 'package').length}</div>
+              <div className="text-sm text-muted-foreground">Packages</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{components.filter(c => c.type === 'library').length}</div>
-              <div className="text-sm text-gray-600">Libraries</div>
+              <div className="text-2xl font-bold text-purple-500">{components.filter(c => c.type === 'library').length}</div>
+              <div className="text-sm text-muted-foreground">Libraries</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{components.reduce((acc, c) => acc + c.vulnerabilities, 0)}</div>
-              <div className="text-sm text-gray-600">Security Risks</div>
+              <div className="text-2xl font-bold text-red-500">{components.reduce((acc, c) => acc + c.vulnerabilities, 0)}</div>
+              <div className="text-sm text-muted-foreground">Security Risks</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{components.filter(c => c.vulnerabilities === 0).length}</div>
-              <div className="text-sm text-gray-600">Up to Date</div>
+              <div className="text-2xl font-bold text-green-500">{components.filter(c => c.vulnerabilities === 0).length}</div>
+              <div className="text-sm text-muted-foreground">Up to Date</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600">{formatDate(projectInfo.last_scan.timestamp)}</div>
-              <div className="text-sm text-gray-600">Last Updated</div>
+              <div className="text-2xl font-bold text-muted-foreground">{formatDate(projectInfo.last_scan.timestamp)}</div>
+              <div className="text-sm text-muted-foreground">Last Updated</div>
             </div>
           </div>
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Search</label>
               <input
                 type="text"
                 placeholder="Search components..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             
             {/* Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Type</label>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="all">All Types</option>
                 {getUniqueTypes().map(type => (
@@ -297,11 +296,11 @@ export default function SBOMPage() {
             
             {/* Risk Level Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Risk Level</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Risk Level</label>
               <select
                 value={riskFilter}
                 onChange={(e) => setRiskFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="all">All Risk Levels</option>
                 {getUniqueRiskLevels().map(risk => (
@@ -312,7 +311,7 @@ export default function SBOMPage() {
             
             {/* Results Count */}
             <div className="flex items-end">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted-foreground">
                 Showing {filteredComponents.length} of {components.length} components
               </div>
             </div>
@@ -320,13 +319,13 @@ export default function SBOMPage() {
         </div>
 
         {/* Components Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-card rounded-lg shadow-sm border border-border">
+          <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-foreground">
                 Software Components ({filteredComponents.length})
               </h3>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Last updated: {new Date().toLocaleString()}
               </p>
             </div>
@@ -334,13 +333,13 @@ export default function SBOMPage() {
           
           {filteredComponents.length === 0 ? (
             <div className="p-12 text-center">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No SBOM components found</h3>
-              <p className="text-gray-500">Try adjusting your search criteria or filters.</p>
+              <h3 className="text-lg font-medium text-foreground mb-2">No SBOM components found</h3>
+              <p className="text-muted-foreground">Try adjusting your search criteria or filters.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Component
