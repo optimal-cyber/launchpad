@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Terminal, Docker, Key, ArrowRight, Shield, Zap, Cloud, GitBranch, CheckCircle } from 'lucide-react';
+import { Copy, Check, Terminal, Box, Key, ArrowRight, Shield, Zap, Cloud, GitBranch, CheckCircle } from 'lucide-react';
 
 type Step = 'welcome' | 'token' | 'install' | 'verify' | 'done';
 
@@ -227,7 +227,7 @@ export default function OnboardingPage() {
               {/* Installation Method Tabs */}
               <div className="flex space-x-2 mb-6">
                 {[
-                  { id: 'docker', label: 'Docker', icon: Docker },
+                  { id: 'docker', label: 'Docker', icon: Box },
                   { id: 'script', label: 'Quick Script', icon: Terminal },
                   { id: 'kubernetes', label: 'Kubernetes', icon: Cloud }
                 ].map((method) => {
