@@ -20,15 +20,17 @@ COPY app ./app
 COPY components ./components
 COPY lib ./lib
 COPY types ./types
-COPY public/favicon.ico public/optimal-logo.png ./public/
 COPY next.config.js tsconfig.json tailwind.config.ts postcss.config.js ./
 COPY package.json ./
+
+# Create empty public directory (assets served from app directory in Next.js 13+)
+RUN mkdir -p public
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
-# Production image, copy all the files and run next
+# Production image
 FROM base AS runner
 WORKDIR /app
 
@@ -41,7 +43,9 @@ RUN adduser --system --uid 1001 nextjs
 # Copy the standalone output and static files
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+
+# Create empty public directory
+RUN mkdir -p public
 
 # Set correct ownership
 RUN chown -R nextjs:nodejs /app
@@ -53,5 +57,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
 CMD ["node", "server.js"]

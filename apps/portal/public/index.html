@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimal Platform - DevSecOps Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: #1e293b;
+            padding: 40px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        .logo {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .service-card {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .service-card:hover {
+            transform: translateY(-5px);
+            border-color: #3b82f6;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
+        }
+        .service-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .service-title {
+            color: #f8fafc;
+            font-size: 1.5rem;
+            margin: 0 0 15px 0;
+            font-weight: 600;
+        }
+        .service-description {
+            color: #94a3b8;
+            margin: 0 0 20px 0;
+            line-height: 1.6;
+        }
+        .service-link {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .service-link:hover {
+            background: #2563eb;
+        }
+        .status-bar {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            margin-bottom: 30px;
+        }
+        .status-title {
+            color: #f8fafc;
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .status-item {
+            text-align: center;
+            padding: 15px;
+            background: #0f172a;
+            border-radius: 6px;
+            border: 1px solid #334155;
+        }
+        .status-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        .status-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .footer {
+            text-align: center;
+            color: #64748b;
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid #334155;
+        }
+        .important-notice {
+            background: #dc2626;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🚀</div>
+            <h1>Optimal Platform</h1>
+            <p class="subtitle">Enterprise DevSecOps Platform</p>
+        </div>
+        
+        <!-- Important Notice -->
+        <div class="important-notice">
+            ⚠️ IMPORTANT: Use the links below to access the enhanced interfaces. 
+            The Next.js routes (/vulnerabilities, /sbom) still show the old interface.
+        </div>
+        
+        <div class="status-bar">
+            <h3 class="status-title">Platform Status</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-number" id="vulnCount">-</div>
+                    <div class="status-label">Vulnerabilities</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-number" id="sbomCount">-</div>
+                    <div class="status-label">SBOM Components</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-number" id="servicesCount">15+</div>
+                    <div class="status-label">Services Running</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-number" id="apiStatus">✅</div>
+                    <div class="status-label">API Status</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="services-grid">
+            <div class="service-card" onclick="window.location.href='vulnerabilities.html'">
+                <div class="service-icon">🛡️</div>
+                <h3 class="service-title">Vulnerability Management</h3>
+                <p class="service-description">
+                    <strong>ENHANCED INTERFACE</strong> - Manage and monitor security vulnerabilities across your projects. 
+                    Create POA&M items, update statuses, and track remediation progress.
+                </p>
+                <a href="vulnerabilities.html" class="service-link">Open Enhanced Dashboard</a>
+            </div>
+            
+            <div class="service-card" onclick="window.location.href='sbom.html'">
+                <div class="service-icon">📦</div>
+                <h3 class="service-title">SBOM Management</h3>
+                <p class="service-description">
+                    <strong>ENHANCED INTERFACE</strong> - Software Bill of Materials - Track and manage software components, 
+                    analyze package types, and monitor vulnerability status.
+                </p>
+                <a href="sbom.html" class="service-link">Open Enhanced Dashboard</a>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">📋</div>
+                <h3 class="service-title">POA&M Management</h3>
+                <p class="service-description">
+                    Plan of Action and Milestones - Track remediation tasks, 
+                    assign responsibilities, and monitor progress.
+                </p>
+                <a href="#" class="service-link">Coming Soon</a>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">📊</div>
+                <h3 class="service-title">OSCAL SSP</h3>
+                <p class="service-description">
+                    System Security Plan management using OSCAL format. 
+                    Build and maintain compliance documentation.
+                </p>
+                <a href="#" class="service-link">Coming Soon</a>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">🐳</div>
+                <h3 class="service-title">Harbor Registry</h3>
+                <p class="service-description">
+                    Container image registry for secure storage and distribution 
+                    of Docker images across your infrastructure.
+                </p>
+                <a href="#" class="service-link">Access Service</a>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">📚</div>
+                <h3 class="service-title">Confluence</h3>
+                <p class="service-description">
+                    Team collaboration and documentation platform. 
+                    Create, share, and organize project documentation.
+                </p>
+                <a href="#" class="service-link">Access Service</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Optimal Platform - Enterprise DevSecOps Solution</p>
+            <p>Built for Fed Supernova and beyond</p>
+        </div>
+    </div>
+
+    <script>
+        // Load platform status
+        async function loadPlatformStatus() {
+            try {
+                // Load vulnerability count
+                const vulnResponse = await fetch('http://localhost:8000/api/vulns');
+                if (vulnResponse.ok) {
+                    const vulnData = await vulnResponse.json();
+                    document.getElementById('vulnCount').textContent = vulnData.vulnerabilities?.length || 0;
+                }
+                
+                // Load SBOM count
+                const sbomResponse = await fetch('http://localhost:8000/api/components');
+                if (sbomResponse.ok) {
+                    const sbomData = await sbomResponse.json();
+                    document.getElementById('sbomCount').textContent = sbomData.components?.length || 0;
+                }
+                
+                // Check API status
+                document.getElementById('apiStatus').textContent = '✅';
+                
+            } catch (error) {
+                console.error('Failed to load platform status:', error);
+                document.getElementById('apiStatus').textContent = '❌';
+            }
+        }
+        
+        // Load status when page loads
+        document.addEventListener('DOMContentLoaded', loadPlatformStatus);
+    </script>
+</body>
+</html>
