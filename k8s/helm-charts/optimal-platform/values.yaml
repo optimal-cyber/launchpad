@@ -232,16 +232,17 @@ worker:
     REDIS_URL: ""
 
 # -----------------------------------------------------------------------------
-# Runtime Security Agent (DaemonSet)
+# Runtime Security Agent (DaemonSet) - Platform Side
+# Note: For tenant-side agents, use the separate optimal-agent Helm chart
 # -----------------------------------------------------------------------------
 securityAgent:
   enabled: true
-  
+
   image:
     repository: optimal-platform/runtime-security-agent
     tag: "latest"
     pullPolicy: IfNotPresent
-  
+
   resources:
     limits:
       cpu: 200m
@@ -249,12 +250,91 @@ securityAgent:
     requests:
       cpu: 50m
       memory: 128Mi
-  
+
   tolerations:
     - operator: Exists
-  
+
   env:
     API_GATEWAY_URL: "http://api-gateway:8000"
+
+# -----------------------------------------------------------------------------
+# Tenant Service (Multi-tenant Management)
+# -----------------------------------------------------------------------------
+tenantService:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: optimal-platform/tenant-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  env:
+    PLATFORM_DATABASE_URL: ""
+    KEYCLOAK_URL: ""
+    KEYCLOAK_ADMIN_USERNAME: ""
+    KEYCLOAK_ADMIN_PASSWORD: ""
+
+# -----------------------------------------------------------------------------
+# Multi-tenancy Configuration
+# -----------------------------------------------------------------------------
+multiTenancy:
+  enabled: true
+
+  # Database isolation strategy
+  databaseIsolation: "database"  # database (separate DB per tenant) or schema (separate schema per tenant)
+
+  # Tenant database provisioning
+  tenantDatabase:
+    # Template for tenant database names
+    nameTemplate: "optimal_tenant_{{ .TenantID }}"
+    # Connection pool per tenant
+    poolSize: 10
+    # Auto-provision databases
+    autoProvision: true
+
+  # Keycloak realm configuration
+  keycloak:
+    # Template for tenant realm names
+    realmTemplate: "optimal-{{ .TenantID }}"
+    # Auto-create realms
+    autoProvision: true
+    # Default client configuration
+    defaultClients:
+      - name: optimal-portal
+        publicClient: true
+        redirectUris:
+          - "https://{{ .TenantSubdomain }}.portal.gooptimal.io/*"
+      - name: optimal-api
+        publicClient: false
+        serviceAccountsEnabled: true
+
+  # Tenant subdomain configuration
+  subdomain:
+    enabled: true
+    baseDomain: "gooptimal.io"
+    # Auto-create DNS records (requires external-dns)
+    autoDNS: true
+
+  # Tenant resource quotas
+  quotas:
+    default:
+      agents: 100
+      scansPerDay: 1000
+      storageGB: 50
+      apiRequestsPerHour: 10000
 
 # -----------------------------------------------------------------------------
 # PostgreSQL (Bitnami)
@@ -385,4 +465,8 @@ serviceAccount:
 podDisruptionBudgets:
   enabled: true
   minAvailable: 1
+
+
+
+
 

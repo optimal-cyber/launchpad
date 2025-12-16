@@ -1,138 +1,143 @@
-import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
+import { NextRequest, NextResponse } from 'next/server';
 
-// In-memory storage for demo (use database in production)
-const scanResults: any[] = [];
+/**
+ * Scan Ingestion Endpoint
+ * Receives security scan results from GitLab pipelines
+ */
 
-export async function POST(request: Request) {
+interface ScanIngestion {
+  scan_id?: string;
+  agent_id?: string;
+  timestamp?: string;
+  target_type?: string;
+  target?: string;
+  findings?: any[];
+  summary?: any;
+  metadata?: any;
+  grype?: any;
+  project?: any;
+  source?: any;
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Verify authorization
+    const authHeader = request.headers.get('authorization');
+    const apiToken = request.headers.get('x-optimal-token');
     
-    const {
-      scan_id,
-      agent_id,
-      timestamp,
-      target_type,
-      target,
-      findings,
-      summary,
-      metadata,
-      grype,
-      project,
-      source
-    } = body;
-
-    // Validate required fields
-    if (!scan_id || !target) {
+    if (!authHeader && !apiToken) {
       return NextResponse.json(
-        { error: 'scan_id and target are required' },
-        { status: 400 }
+        { error: 'Unauthorized - missing API token' },
+        { status: 401 }
       );
     }
 
-    // Process and store the scan result
-    const scanResult = {
-      id: scan_id,
-      scan_id,
-      agent_id: agent_id || 'api-upload',
-      timestamp: timestamp || new Date().toISOString(),
-      target_type: target_type || 'image',
-      target,
-      findings: findings || [],
-      summary: summary || {
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        total: findings?.length || 0
-      },
-      metadata: metadata || {},
-      project: project || {
-        gitlab_project_id: Math.floor(Math.random() * 1000000),
-        name: target.split('/').pop()?.split(':')[0] || target
-      },
-      source: source || {
-        pipeline_id: Date.now(),
-        job_id: Date.now() + 1,
-        sha: 'manual-upload'
-      },
-      received_at: new Date().toISOString()
+    const body: ScanIngestion = await request.json();
+    
+    // Log the ingestion
+    console.log('📥 Scan ingestion received:', {
+      scan_id: body.scan_id,
+      target: body.target,
+      findings: body.findings?.length || 0,
+      project: body.project?.name || 'unknown'
+    });
+
+    // Store scan results (in production, this would go to database)
+    const scan_id = body.scan_id || `scan_${Date.now()}`;
+    const timestamp = body.timestamp || new Date().toISOString();
+    
+    // Calculate metrics
+    const summary = body.summary || {
+      critical: body.findings?.filter((f: any) => f.severity === 'CRITICAL').length || 0,
+      high: body.findings?.filter((f: any) => f.severity === 'HIGH').length || 0,
+      medium: body.findings?.filter((f: any) => f.severity === 'MEDIUM').length || 0,
+      low: body.findings?.filter((f: any) => f.severity === 'LOW').length || 0,
+      total: body.findings?.length || 0
     };
 
-    // Calculate summary if not provided
-    if (!summary && findings) {
-      scanResult.summary = {
-        critical: findings.filter((f: any) => f.severity?.toLowerCase() === 'critical').length,
-        high: findings.filter((f: any) => f.severity?.toLowerCase() === 'high').length,
-        medium: findings.filter((f: any) => f.severity?.toLowerCase() === 'medium').length,
-        low: findings.filter((f: any) => f.severity?.toLowerCase() === 'low').length,
-        total: findings.length
-      };
+    // Store in database (PostgreSQL)
+    // In production: await storeInDatabase(body);
+    
+    // Update metrics for Prometheus
+    // In production: await updatePrometheusMetrics(summary);
+    
+    // Send to Elasticsearch for logging
+    // In production: await sendToElasticsearch(body);
+    
+    // Check if this triggers any alerts
+    if (summary.critical > 0) {
+      console.log('🚨 CRITICAL vulnerabilities detected!');
+      // In production: await sendAlert('critical', summary);
     }
 
-    // Store the scan result
-    scanResults.push(scanResult);
-
-    // Keep only last 1000 results in memory (demo limitation)
-    if (scanResults.length > 1000) {
-      scanResults.shift();
+    // Update authorization status if this is a pipeline scan
+    if (body.source?.pipeline_id) {
+      console.log('🔐 Updating authorization status for pipeline:', body.source.pipeline_id);
+      // In production: await updateAuthorizationStatus(body);
     }
-
-    console.log(`Scan ingested: ${scan_id} - ${target} (${scanResult.summary.total} findings)`);
 
     return NextResponse.json({
-      success: true,
-      scan_id,
+      status: 'success',
       message: 'Scan results ingested successfully',
-      summary: scanResult.summary,
-      received_at: scanResult.received_at
-    });
+      scan_id: scan_id,
+      timestamp: timestamp,
+      summary: summary,
+      authorization: {
+        status: summary.critical > 0 ? 'rejected' : summary.high > 5 ? 'pending' : 'authorized',
+        compliance_score: calculateComplianceScore(summary),
+        message: getAuthorizationMessage(summary)
+      }
+    }, { status: 201 });
 
   } catch (error) {
-    console.error('Error ingesting scan:', error);
+    console.error('❌ Scan ingestion error:', error);
     return NextResponse.json(
-      { error: 'Failed to ingest scan results' },
+      { 
+        error: 'Failed to ingest scan results',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
 }
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const target = searchParams.get('target');
-    const agent_id = searchParams.get('agent_id');
-
-    let results = [...scanResults];
-
-    // Filter by target if provided
-    if (target) {
-      results = results.filter(r => r.target.includes(target));
-    }
-
-    // Filter by agent if provided
-    if (agent_id) {
-      results = results.filter(r => r.agent_id === agent_id);
-    }
-
-    // Sort by timestamp descending and limit
-    results = results
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, limit);
-
-    return NextResponse.json({
-      success: true,
-      count: results.length,
-      total: scanResults.length,
-      scans: results
-    });
-
-  } catch (error) {
-    console.error('Error listing scans:', error);
-    return NextResponse.json(
-      { error: 'Failed to list scans' },
-      { status: 500 }
-    );
-  }
+function calculateComplianceScore(summary: any): number {
+  const total = summary.total || 0;
+  if (total === 0) return 100;
+  
+  const weighted = 
+    (summary.critical || 0) * 10 +
+    (summary.high || 0) * 5 +
+    (summary.medium || 0) * 2 +
+    (summary.low || 0) * 1;
+  
+  const maxScore = 100;
+  const deduction = Math.min(weighted, maxScore);
+  
+  return Math.max(0, maxScore - deduction);
 }
+
+function getAuthorizationMessage(summary: any): string {
+  if (summary.critical > 0) {
+    return `Deployment blocked: ${summary.critical} critical vulnerabilities must be resolved`;
+  }
+  if (summary.high > 5) {
+    return `Manual review required: ${summary.high} high severity vulnerabilities detected`;
+  }
+  if (summary.high > 0 || summary.medium > 0) {
+    return `Authorized with findings: remediation recommended for ${summary.high} high and ${summary.medium} medium severity issues`;
+  }
+  return 'Component fully authorized for deployment';
+}
+
+export async function GET(request: NextRequest) {
+  // Return recent scans
+  return NextResponse.json({
+    message: 'Scan ingestion endpoint',
+    status: 'operational',
+    recent_scans: []
+  });
+}
+
 

@@ -1,0 +1,36 @@
+# Kind cluster configuration for Optimal Platform local development
+# Includes ingress support and extra port mappings
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: optimal-local
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # HTTP
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      # HTTPS
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+      # Keycloak
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+      # Grafana
+      - containerPort: 30030
+        hostPort: 3000
+        protocol: TCP
+      # Prometheus
+      - containerPort: 30090
+        hostPort: 9090
+        protocol: TCP
+  - role: worker
+  - role: worker

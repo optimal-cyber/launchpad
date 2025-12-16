@@ -3,14 +3,27 @@
 Optimal Scanner Agent
 Lightweight vulnerability scanner that reports to the Optimal Platform.
 
+Environment-aware agent that automatically detects and reports:
+- Deployment environment (prod, staging, dev)
+- Kubernetes cluster/namespace (if applicable)
+- Host information
+
 Usage:
-  # Install and run with one command:
+  # Install and run with Docker:
   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-    optimal/scanner --api-url https://api.gooptimal.io --token YOUR_TOKEN
+    optimal/scanner --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN
 
   # Or install locally:
   pip install optimal-scanner
-  optimal-scan --api-url https://api.gooptimal.io --token YOUR_TOKEN
+  optimal-scan --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN
+
+Environment Variables:
+  OPTIMAL_API_URL          - Platform API URL (required)
+  OPTIMAL_API_TOKEN        - API authentication token (required)
+  OPTIMAL_ENVIRONMENT      - Environment name (prod, staging, dev)
+  OPTIMAL_CLUSTER          - Kubernetes cluster name
+  OPTIMAL_NAMESPACE        - Kubernetes namespace
+  GITLAB_PROJECT_ID        - GitLab project for auto-creating issues
 """
 
 import argparse
@@ -24,12 +37,81 @@ import subprocess
 import sys
 import time
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import aiohttp
 import docker
+
+
+# =============================================================================
+# Environment Detection
+# =============================================================================
+
+class Environment(str, Enum):
+    """Deployment environment types"""
+    PRODUCTION = "production"
+    STAGING = "staging"
+    DEVELOPMENT = "development"
+    LOCAL = "local"
+    UNKNOWN = "unknown"
+
+
+def detect_environment() -> Environment:
+    """Auto-detect the deployment environment"""
+    # Check explicit environment variable first
+    env_str = os.getenv("OPTIMAL_ENVIRONMENT", os.getenv("ENVIRONMENT", "")).lower()
+
+    env_mapping = {
+        "production": Environment.PRODUCTION,
+        "prod": Environment.PRODUCTION,
+        "staging": Environment.STAGING,
+        "stage": Environment.STAGING,
+        "development": Environment.DEVELOPMENT,
+        "dev": Environment.DEVELOPMENT,
+        "local": Environment.LOCAL,
+    }
+
+    if env_str in env_mapping:
+        return env_mapping[env_str]
+
+    # Try to detect from K8s namespace
+    namespace = os.getenv("POD_NAMESPACE", os.getenv("OPTIMAL_NAMESPACE", "")).lower()
+    if "prod" in namespace:
+        return Environment.PRODUCTION
+    elif "stag" in namespace:
+        return Environment.STAGING
+    elif "dev" in namespace:
+        return Environment.DEVELOPMENT
+
+    # Check for local development indicators
+    if os.path.exists("/.dockerenv"):
+        if os.getenv("LOCAL_DEV", "").lower() == "true":
+            return Environment.LOCAL
+
+    return Environment.UNKNOWN
+
+
+@dataclass
+class EnvironmentInfo:
+    """Environment metadata for scan context"""
+    environment: str
+    cluster: str = ""
+    namespace: str = ""
+    node: str = ""
+    pod: str = ""
+
+    @classmethod
+    def from_env(cls) -> "EnvironmentInfo":
+        return cls(
+            environment=detect_environment().value,
+            cluster=os.getenv("OPTIMAL_CLUSTER", os.getenv("CLUSTER_NAME", "")),
+            namespace=os.getenv("OPTIMAL_NAMESPACE", os.getenv("POD_NAMESPACE", "")),
+            node=os.getenv("OPTIMAL_NODE", os.getenv("NODE_NAME", "")),
+            pod=os.getenv("POD_NAME", ""),
+        )
 
 
 # Configure logging
@@ -65,29 +147,52 @@ class ScanReport:
     findings: List[Dict]
     summary: Dict[str, int]
     metadata: Dict[str, Any]
+    environment: str = "unknown"
+    environment_info: Dict[str, str] = field(default_factory=dict)
 
 
 class OptimalScanner:
     """
     Optimal Platform Scanner Agent
-    
-    Scans container images, running containers, and filesystems for vulnerabilities
-    and reports findings to the Optimal Platform API.
+
+    Environment-aware vulnerability scanner that:
+    - Auto-detects deployment environment (prod, staging, dev)
+    - Reports environment context with all findings
+    - Supports self-hosted deployments (no hardcoded URLs)
+    - Integrates with GitLab Issues for automated ticket creation
     """
-    
+
     def __init__(
         self,
         api_url: str,
         api_token: str,
         org_id: Optional[str] = None,
-        scanner_type: str = "grype"
+        scanner_type: str = "grype",
+        environment: Optional[str] = None,
+        gitlab_project_id: Optional[int] = None,
+        auto_create_issues: bool = False,
+        issue_severity_threshold: str = "high"
     ):
         self.api_url = api_url.rstrip('/')
         self.api_token = api_token
-        self.org_id = org_id or "default"
+        self.org_id = org_id or os.getenv("OPTIMAL_ORG_ID", "default")
         self.scanner_type = scanner_type
         self.agent_id = self._generate_agent_id()
-        
+
+        # Environment detection
+        self.env_info = EnvironmentInfo.from_env()
+        if environment:
+            self.env_info.environment = environment
+
+        # Issue creation settings
+        self.gitlab_project_id = gitlab_project_id or int(os.getenv("GITLAB_PROJECT_ID", "0"))
+        self.auto_create_issues = auto_create_issues or os.getenv("OPTIMAL_AUTO_CREATE_ISSUES", "").lower() == "true"
+        self.issue_severity_threshold = issue_severity_threshold
+
+        logger.info(f"Environment detected: {self.env_info.environment}")
+        if self.env_info.cluster:
+            logger.info(f"Cluster: {self.env_info.cluster}, Namespace: {self.env_info.namespace}")
+
         # Try to initialize Docker client
         try:
             self.docker_client = docker.from_env()
@@ -154,7 +259,9 @@ class OptimalScanner:
                 "scanner": self.scanner_type,
                 "scanner_version": self._get_scanner_version(),
                 "org_id": self.org_id
-            }
+            },
+            environment=self.env_info.environment,
+            environment_info=asdict(self.env_info)
         )
         
         logger.info(f"Scan complete: {summary}")
@@ -213,7 +320,9 @@ class OptimalScanner:
                 "scanner": self.scanner_type,
                 "scanner_version": self._get_scanner_version(),
                 "org_id": self.org_id
-            }
+            },
+            environment=self.env_info.environment,
+            environment_info=asdict(self.env_info)
         )
         
         return report
@@ -503,41 +612,64 @@ class OptimalScanner:
 async def main():
     """Main entry point for CLI"""
     parser = argparse.ArgumentParser(
-        description="Optimal Scanner Agent - Lightweight vulnerability scanner",
+        description="Optimal Scanner Agent - Environment-aware vulnerability scanner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Scan a container image
-  optimal-scan --api-url https://api.gooptimal.io --token YOUR_TOKEN --image nginx:latest
+  # Scan a container image (uses environment variables for API URL/token)
+  optimal-scan --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN --image nginx:latest
+
+  # Scan with explicit environment
+  optimal-scan --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN --image nginx:latest --environment production
 
   # Scan all running containers
-  optimal-scan --api-url https://api.gooptimal.io --token YOUR_TOKEN --all-containers
+  optimal-scan --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN --all-containers
 
   # Scan a directory
-  optimal-scan --api-url https://api.gooptimal.io --token YOUR_TOKEN --path /app
+  optimal-scan --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN --path /app
 
-  # Run in daemon mode (continuous scanning)
-  optimal-scan --api-url https://api.gooptimal.io --token YOUR_TOKEN --daemon --interval 300
+  # Run in daemon mode with auto-issue creation
+  optimal-scan --api-url $OPTIMAL_API_URL --token $OPTIMAL_API_TOKEN \\
+    --daemon --interval 300 --auto-issues --gitlab-project 123
+
+Environment Variables:
+  OPTIMAL_API_URL           Platform API URL
+  OPTIMAL_API_TOKEN         API authentication token
+  OPTIMAL_ENVIRONMENT       Environment (prod, staging, dev)
+  OPTIMAL_CLUSTER           Kubernetes cluster name
+  OPTIMAL_NAMESPACE         Kubernetes namespace
+  GITLAB_PROJECT_ID         GitLab project for auto-issue creation
         """
     )
     
     # Required arguments
     parser.add_argument("--api-url", required=True, help="Optimal Platform API URL")
     parser.add_argument("--token", required=True, help="API token for authentication")
-    
+
     # Scan targets
     parser.add_argument("--image", help="Container image to scan")
     parser.add_argument("--container", help="Running container ID to scan")
     parser.add_argument("--all-containers", action="store_true", help="Scan all running containers")
     parser.add_argument("--path", help="Filesystem path to scan")
-    
-    # Options
+
+    # Environment options
+    parser.add_argument("--environment", help="Override environment detection (prod, staging, dev)")
+    parser.add_argument("--cluster", help="Kubernetes cluster name")
+    parser.add_argument("--namespace", help="Kubernetes namespace")
+
+    # Basic options
     parser.add_argument("--org-id", help="Organization ID")
     parser.add_argument("--scanner", default="grype", choices=["grype", "trivy", "demo"], help="Scanner to use")
     parser.add_argument("--daemon", action="store_true", help="Run in daemon mode")
     parser.add_argument("--interval", type=int, default=300, help="Scan interval in seconds (daemon mode)")
     parser.add_argument("--output", help="Output results to file")
     parser.add_argument("--quiet", action="store_true", help="Suppress output")
+
+    # GitLab issue creation options
+    parser.add_argument("--auto-issues", action="store_true", help="Automatically create GitLab issues for findings")
+    parser.add_argument("--gitlab-project", type=int, help="GitLab project ID for issue creation")
+    parser.add_argument("--severity-threshold", default="high", choices=["critical", "high", "medium", "low"],
+                        help="Minimum severity for auto-issue creation (default: high)")
     
     args = parser.parse_args()
     
@@ -611,4 +743,8 @@ Examples:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+
+
 

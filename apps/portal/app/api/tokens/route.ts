@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -130,4 +131,8 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+
+
+
 

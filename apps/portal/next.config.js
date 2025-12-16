@@ -1,11 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   output: 'standalone',
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+    // Disable image optimization if sharp is not available
+    unoptimized: process.env.NODE_ENV === 'development',
   },
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,

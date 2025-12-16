@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header, Query, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, Header, Query, File, UploadFile, Form, BackgroundTasks
 from pydantic import BaseModel
 import json
 import logging
@@ -8,17 +8,47 @@ import zipfile
 import io
 import re
 import gzip
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import uuid
 from datetime import datetime
 import asyncpg
 import json
 
+# Import GitLab Issues module (legacy - kept for backward compatibility)
+from gitlab_issues import (
+    GitLabConfig,
+    GitLabIssuesClient,
+    VulnerabilityIssueRequest,
+    MisconfigurationIssueRequest,
+    POAMIssueRequest,
+    BulkIssueRequest,
+    IssueResponse,
+    create_vulnerability_issue,
+    create_misconfiguration_issue,
+    create_poam_issue,
+    create_bulk_issues,
+    auto_create_issues_from_scan,
+    gitlab_issues,
+    config as gitlab_config
+)
+
+# Import provider-agnostic service (new unified API)
+from provider_service import (
+    ProviderService,
+    get_service,
+    close_service,
+    auto_create_tickets_from_scan,
+)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="GitLab Integration Service", version="1.0.0")
+app = FastAPI(
+    title="GitLab Integration Service",
+    version="1.0.0",
+    description="GitLab integration for CI/CD, webhooks, and automated issue management"
+)
 
 # Environment variables
 GITLAB_BASE_URL = os.getenv("GITLAB_BASE_URL", "https://gitlab.com")
@@ -455,12 +485,519 @@ async def test_fetch(
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "gitlab-listener"}
+    gitlab_status = await gitlab_issues.test_connection() if gitlab_config.is_configured else {"connected": False}
+    return {
+        "status": "healthy",
+        "service": "gitlab-listener",
+        "gitlab_issues_configured": gitlab_config.is_configured,
+        "gitlab_connected": gitlab_status.get("connected", False)
+    }
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {"message": "GitLab Integration Service", "version": "1.0.0"}
+
+
+# =============================================================================
+# GitLab Issues API Routes
+# =============================================================================
+
+@app.get("/api/issues/status")
+async def issues_status():
+    """Get GitLab Issues integration status"""
+    if not gitlab_config.is_configured:
+        return {
+            "configured": False,
+            "message": "GitLab is not configured. Set GITLAB_BASE_URL and GITLAB_TOKEN environment variables."
+        }
+
+    connection = await gitlab_issues.test_connection()
+    return {
+        "configured": True,
+        "connected": connection.get("connected", False),
+        "user": connection.get("user"),
+        "base_url": gitlab_config.base_url,
+        "default_project": gitlab_config.project_id,
+        "sla_days": {
+            "critical": gitlab_config.sla_critical,
+            "high": gitlab_config.sla_high,
+            "medium": gitlab_config.sla_medium,
+            "low": gitlab_config.sla_low
+        }
+    }
+
+
+@app.post("/api/issues/vulnerability", response_model=IssueResponse)
+async def create_vuln_issue(request: VulnerabilityIssueRequest):
+    """Create a GitLab issue from a vulnerability finding"""
+    return await create_vulnerability_issue(request)
+
+
+@app.post("/api/issues/misconfiguration", response_model=IssueResponse)
+async def create_misconfig_issue(request: MisconfigurationIssueRequest):
+    """Create a GitLab issue from a misconfiguration finding"""
+    return await create_misconfiguration_issue(request)
+
+
+@app.post("/api/issues/poam", response_model=IssueResponse)
+async def create_poam(request: POAMIssueRequest):
+    """Create or update a POA&M issue in GitLab"""
+    return await create_poam_issue(request)
+
+
+@app.post("/api/issues/bulk")
+async def create_issues_bulk(request: BulkIssueRequest, background_tasks: BackgroundTasks):
+    """Create multiple issues in bulk"""
+    total = len(request.vulnerabilities or []) + len(request.misconfigurations or [])
+
+    if total == 0:
+        raise HTTPException(status_code=400, detail="No issues to create")
+
+    if total > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 issues per bulk request")
+
+    # For large batches, process in background
+    if total > 10:
+        job_id = str(uuid.uuid4())
+
+        async def process_bulk():
+            results = await create_bulk_issues(request)
+            logger.info(f"Bulk job {job_id} completed: {results['summary']}")
+
+        background_tasks.add_task(process_bulk)
+
+        return {
+            "job_id": job_id,
+            "status": "processing",
+            "total_issues": total,
+            "message": f"Processing {total} issues in background"
+        }
+
+    # Small batches processed immediately
+    return await create_bulk_issues(request)
+
+
+@app.post("/api/issues/auto-create")
+async def auto_create_from_scan(
+    scan_results: Dict[str, Any],
+    project_id: int = Query(...),
+    environment: str = Query(...),
+    severity_threshold: str = Query(default="high")
+):
+    """
+    Automatically create issues from scan results.
+    Only creates issues for findings at or above the severity threshold.
+    """
+    if severity_threshold.lower() not in ["critical", "high", "medium", "low", "informational"]:
+        raise HTTPException(status_code=400, detail="Invalid severity threshold")
+
+    return await auto_create_issues_from_scan(
+        scan_results=scan_results,
+        project_id=project_id,
+        environment=environment,
+        severity_threshold=severity_threshold
+    )
+
+
+@app.get("/api/issues/{project_id}/{issue_iid}")
+async def get_issue(project_id: int, issue_iid: int):
+    """Get issue details from GitLab"""
+    if not gitlab_config.is_configured:
+        raise HTTPException(status_code=503, detail="GitLab is not configured")
+
+    issue = await gitlab_issues.get_issue(project_id, issue_iid)
+    if issue:
+        return issue
+    else:
+        raise HTTPException(status_code=404, detail=f"Issue #{issue_iid} not found")
+
+
+@app.get("/api/issues/{project_id}")
+async def search_issues(
+    project_id: int,
+    labels: str = Query(None, description="Comma-separated labels"),
+    state: str = Query(None, description="Issue state (opened, closed, all)"),
+    search: str = Query(None, description="Search in title and description"),
+    per_page: int = Query(50, le=100)
+):
+    """Search issues in a project"""
+    if not gitlab_config.is_configured:
+        raise HTTPException(status_code=503, detail="GitLab is not configured")
+
+    label_list = labels.split(",") if labels else None
+
+    issues = await gitlab_issues.search_issues(
+        project_id=project_id,
+        labels=label_list,
+        state=state,
+        search=search,
+        per_page=per_page
+    )
+
+    return {
+        "project_id": project_id,
+        "total": len(issues),
+        "issues": issues
+    }
+
+
+@app.post("/api/issues/{project_id}/{issue_iid}/comment")
+async def add_issue_comment(project_id: int, issue_iid: int, body: str):
+    """Add a comment to an issue"""
+    if not gitlab_config.is_configured:
+        raise HTTPException(status_code=503, detail="GitLab is not configured")
+
+    result = await gitlab_issues.add_comment(project_id, issue_iid, body)
+
+    if result.get("success"):
+        return result
+    else:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+
+
+@app.post("/api/issues/{project_id}/{issue_iid}/close")
+async def close_issue(project_id: int, issue_iid: int):
+    """Close an issue"""
+    if not gitlab_config.is_configured:
+        raise HTTPException(status_code=503, detail="GitLab is not configured")
+
+    result = await gitlab_issues.close_issue(project_id, issue_iid)
+
+    if result.get("success"):
+        return {"status": "closed", "issue_iid": issue_iid}
+    else:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+
+
+@app.post("/api/issues/{project_id}/{issue_iid}/reopen")
+async def reopen_issue(project_id: int, issue_iid: int):
+    """Reopen an issue"""
+    if not gitlab_config.is_configured:
+        raise HTTPException(status_code=503, detail="GitLab is not configured")
+
+    result = await gitlab_issues.reopen_issue(project_id, issue_iid)
+
+    if result.get("success"):
+        return {"status": "reopened", "issue_iid": issue_iid}
+    else:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+
+
+# =============================================================================
+# Provider-Agnostic API Routes (v2)
+# =============================================================================
+# These routes work with any configured provider (GitLab, GitHub, etc.)
+# Provider is auto-detected from OPTIMAL_PROVIDER env var or token presence
+
+class TicketRequest(BaseModel):
+    """Generic ticket creation request"""
+    project_id: str
+    title: str
+    description: str
+    severity: str = "medium"
+    labels: List[str] = []
+    assignee: str = None
+    # Optional fields for vulnerability tickets
+    vulnerability_id: str = None
+    cve_id: str = None
+    affected_component: str = None
+    # Optional fields for misconfiguration tickets
+    finding_id: str = None
+    resource_type: str = None
+    resource_name: str = None
+    compliance_frameworks: List[str] = []
+    # Optional fields for POA&M tickets
+    poam_id: str = None
+    weakness_name: str = None
+    controls: List[str] = []
+    milestones: List[Dict] = []
+    scheduled_completion: str = None
+    # Common
+    environment: str = None
+
+
+@app.get("/api/v2/provider/status")
+async def get_provider_status():
+    """Get current provider status and configuration"""
+    try:
+        service = get_service()
+        connection = await service.test_connection()
+
+        return {
+            "provider": service.provider_type.value,
+            "connected": connection.get("connected", False),
+            "supports": {
+                "tickets": service.supports_tickets,
+                "ci": service.supports_ci,
+                "scm": service.supports_scm,
+            },
+            "user": connection.get("user"),
+        }
+    except Exception as e:
+        logger.error(f"Error getting provider status: {e}")
+        return {
+            "provider": "unknown",
+            "connected": False,
+            "error": str(e),
+        }
+
+
+@app.post("/api/v2/tickets/vulnerability")
+async def create_vuln_ticket_v2(request: TicketRequest):
+    """Create a vulnerability ticket (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        result = await service.create_vulnerability_ticket(
+            project_id=request.project_id,
+            vulnerability_id=request.vulnerability_id or f"vuln-{uuid.uuid4().hex[:8]}",
+            title=request.title,
+            severity=request.severity,
+            description=request.description,
+            cve_id=request.cve_id,
+            affected_component=request.affected_component,
+            environment=request.environment,
+            assignee=request.assignee,
+            labels=request.labels,
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error creating vulnerability ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v2/tickets/misconfiguration")
+async def create_misconfig_ticket_v2(request: TicketRequest):
+    """Create a misconfiguration ticket (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        result = await service.create_misconfiguration_ticket(
+            project_id=request.project_id,
+            finding_id=request.finding_id or f"misconfig-{uuid.uuid4().hex[:8]}",
+            title=request.title,
+            severity=request.severity,
+            description=request.description,
+            resource_type=request.resource_type,
+            resource_name=request.resource_name,
+            compliance_frameworks=request.compliance_frameworks,
+            environment=request.environment,
+            assignee=request.assignee,
+            labels=request.labels,
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error creating misconfiguration ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v2/tickets/poam")
+async def create_poam_ticket_v2(request: TicketRequest):
+    """Create a POA&M ticket (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        result = await service.create_poam_ticket(
+            project_id=request.project_id,
+            poam_id=request.poam_id or f"poam-{uuid.uuid4().hex[:8]}",
+            title=request.title,
+            description=request.description,
+            weakness_name=request.weakness_name,
+            controls=request.controls,
+            milestones=request.milestones,
+            scheduled_completion=request.scheduled_completion,
+            assignee=request.assignee,
+            labels=request.labels,
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error creating POA&M ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v2/tickets/{project_id}/{ticket_id}")
+async def get_ticket_v2(project_id: str, ticket_id: str):
+    """Get a ticket by ID (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        ticket = await service.get_ticket(project_id, ticket_id)
+
+        if ticket:
+            return ticket
+        else:
+            raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v2/tickets/{project_id}")
+async def search_tickets_v2(
+    project_id: str,
+    labels: str = Query(None, description="Comma-separated labels"),
+    status: str = Query(None, description="Ticket status"),
+    search: str = Query(None, description="Search term"),
+):
+    """Search tickets (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        label_list = labels.split(",") if labels else None
+
+        tickets = await service.search_tickets(
+            project_id=project_id,
+            labels=label_list,
+            status=status,
+            search=search,
+        )
+
+        return {
+            "project_id": project_id,
+            "provider": service.provider_type.value,
+            "total": len(tickets),
+            "tickets": tickets,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching tickets: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v2/tickets/{project_id}/{ticket_id}/comment")
+async def add_comment_v2(project_id: str, ticket_id: str, body: str):
+    """Add a comment to a ticket (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        result = await service.add_comment(project_id, ticket_id, body)
+        return result
+
+    except Exception as e:
+        logger.error(f"Error adding comment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v2/tickets/{project_id}/{ticket_id}/close")
+async def close_ticket_v2(project_id: str, ticket_id: str):
+    """Close a ticket (provider-agnostic)"""
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        result = await service.close_ticket(project_id, ticket_id)
+        return {"status": "closed", "ticket_id": ticket_id, **result}
+
+    except Exception as e:
+        logger.error(f"Error closing ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v2/tickets/auto-create")
+async def auto_create_tickets_v2(
+    scan_results: Dict[str, Any],
+    project_id: str = Query(...),
+    environment: str = Query(...),
+    severity_threshold: str = Query(default="high"),
+):
+    """
+    Automatically create tickets from scan results (provider-agnostic).
+
+    Works with any configured provider (GitLab, GitHub, etc.)
+    """
+    try:
+        service = get_service()
+
+        if not service.supports_tickets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Provider {service.provider_type.value} does not support tickets"
+            )
+
+        if severity_threshold.lower() not in ["critical", "high", "medium", "low", "informational"]:
+            raise HTTPException(status_code=400, detail="Invalid severity threshold")
+
+        result = await auto_create_tickets_from_scan(
+            service=service,
+            project_id=project_id,
+            scan_results=scan_results,
+            environment=environment,
+            severity_threshold=severity_threshold,
+        )
+
+        result["provider"] = service.provider_type.value
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error auto-creating tickets: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Lifecycle Events
+# =============================================================================
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Cleanup on shutdown"""
+    await gitlab_issues.close()
+    await close_service()
+
 
 if __name__ == "__main__":
     import uvicorn

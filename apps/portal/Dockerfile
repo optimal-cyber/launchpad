@@ -9,6 +9,8 @@ WORKDIR /app
 # Install dependencies
 COPY package.json ./
 RUN npm install
+# Install sharp for image optimization in standalone mode
+RUN npm install sharp
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -20,11 +22,9 @@ COPY app ./app
 COPY components ./components
 COPY lib ./lib
 COPY types ./types
-COPY next.config.js tsconfig.json tailwind.config.ts postcss.config.js ./
-COPY package.json ./
-
-# Create empty public directory (assets served from app directory in Next.js 13+)
-RUN mkdir -p public
+COPY public ./public
+COPY next.config.js tsconfig.json tailwind.config.js postcss.config.js ./
+COPY package.json package-lock.json ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -43,9 +43,7 @@ RUN adduser --system --uid 1001 nextjs
 # Copy the standalone output and static files
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-
-# Create empty public directory
-RUN mkdir -p public
+COPY --from=builder /app/public ./public
 
 # Set correct ownership
 RUN chown -R nextjs:nodejs /app

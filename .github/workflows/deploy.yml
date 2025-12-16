@@ -31,11 +31,12 @@ on:
       cloud_provider:
         description: 'Cloud provider'
         required: true
-        default: 'aws'
+        default: 'gcp'
         type: choice
         options:
-          - aws
           - gcp
+          - aws
+          - azure
 
 env:
   PROJECT_NAME: optimal-platform
@@ -359,6 +360,12 @@ jobs:
         if: github.event.inputs.cloud_provider == 'gcp'
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Azure credentials
+        if: github.event.inputs.cloud_provider == 'azure'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Update kubeconfig (AWS)
         if: github.event.inputs.cloud_provider == 'aws'
         run: aws eks update-kubeconfig --name optimal-${{ github.event.inputs.environment }} --region us-east-1
@@ -366,6 +373,10 @@ jobs:
       - name: Update kubeconfig (GCP)
         if: github.event.inputs.cloud_provider == 'gcp'
         run: gcloud container clusters get-credentials optimal-${{ github.event.inputs.environment }} --region us-central1
+
+      - name: Update kubeconfig (Azure)
+        if: github.event.inputs.cloud_provider == 'azure'
+        run: az aks get-credentials --resource-group rg-optimal-${{ github.event.inputs.environment }} --name aks-optimal-${{ github.event.inputs.environment }} --overwrite-existing
 
       - name: Deploy with Helm
         run: |

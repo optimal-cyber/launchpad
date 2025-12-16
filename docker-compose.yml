@@ -1,31 +1,96 @@
-version: '3.8'
+# =============================================================================
+# Optimal Platform - Docker Compose Configuration
+# =============================================================================
+# 
+# Quick Start (Local Development):
+#   1. Copy env.development to .env:  cp env.development .env
+#   2. Start all services:            make dev  (or: docker compose up -d)
+#   3. Access services:
+#      - Portal:      http://localhost:3000
+#      - API Gateway: http://localhost:8000
+#      - API Docs:    http://localhost:8000/docs
+#      - Grafana:     http://localhost:3001  (admin/admin)
+#      - Prometheus:  http://localhost:9090
+#      - GitLab:      http://localhost:8080
+#   4. Check health:                  make health
+#   5. View logs:                     docker compose logs -f
+#   6. Stop services:                 docker compose down
+#
+# Optional Profiles:
+#   - To enable Keycloak SSO: docker compose -f docker-compose.yml -f docker-compose.keycloak.yml up -d
+#
+# Troubleshooting:
+#   - Reset everything:  make dev-reset
+#   - Check status:      docker compose ps
+#   - Rebuild images:    docker compose build
+#
+# =============================================================================
+
+networks:
+  optimal-network:
+    driver: bridge
 
 services:
-  # API Gateway
-  api-gateway:
-    build: ./apps/api-gateway
-    ports:
-      - "8000:8000"
+  # ===========================================================================
+  # CORE INFRASTRUCTURE
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # Primary data store for vulnerabilities, SBOMs, POA&Ms, etc.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: optimal-postgres
     environment:
-      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      POSTGRES_USER: ${POSTGRES_USER:-optimal_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-optimal_platform}
     volumes:
-      - ./data:/app/data
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
     networks:
       - optimal-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-optimal_user} -d ${POSTGRES_DB:-optimal_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache
+  # Used for caching, session storage, and background jobs
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:6-alpine
+    container_name: optimal-redis
+    networks:
+      - optimal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
       retries: 3
 
+  # ===========================================================================
+  # FRONTEND
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
   # Next.js Portal
+  # Main web interface for the platform
+  # Access at: http://localhost:3000
+  # ---------------------------------------------------------------------------
   portal:
     build: ./apps/portal
+    container_name: optimal-portal
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NEXT_PUBLIC_API_BASE=http://api-gateway:8000
+      - NODE_ENV=${NODE_ENV:-development}
     depends_on:
       - api-gateway
     networks:
@@ -37,45 +102,56 @@ services:
       timeout: 10s
       retries: 3
 
-  # PostgreSQL Database
-  postgres:
-    image: postgres:13
+  # ===========================================================================
+  # BACKEND SERVICES
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # API Gateway
+  # Main backend API - handles routing to microservices
+  # API Docs: http://localhost:8000/docs
+  # Health: http://localhost:8000/health
+  # API v1: http://localhost:8000/api/v1/*
+  # ---------------------------------------------------------------------------
+  api-gateway:
+    build: ./apps/api-gateway
+    container_name: optimal-api-gateway
+    ports:
+      - "8000:8000"
     environment:
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=optimal_platform
-      - POSTGRES_USER=optimal_user
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://optimal_user:dev_password_123@postgres:5432/optimal_platform}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - SBOM_SERVICE_URL=http://sbom-service:8000
+      - VULN_SERVICE_URL=http://vuln-service:8000
+      - GITLAB_LISTENER_URL=http://gitlab-listener:8000
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+      - ./data:/app/data
+    depends_on:
+      - postgres
+      - redis
     networks:
       - optimal-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U optimal_user -d optimal_platform"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Redis Cache
-  redis:
-    image: redis:6-alpine
-    networks:
-      - optimal-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
+  # ---------------------------------------------------------------------------
   # SBOM Service
+  # Manages Software Bill of Materials (SBOM) data
+  # Internal port: 8000, External: 8002
+  # ---------------------------------------------------------------------------
   sbom-service:
     build: ./services/sbom-service
+    container_name: optimal-sbom-service
     ports:
       - "8002:8000"
     environment:
       - GITLAB_TOKEN=${GITLAB_TOKEN}
-      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - DATABASE_URL=postgresql://optimal_user:${POSTGRES_PASSWORD:-dev_password_123}@postgres:5432/optimal_platform
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./data:/app/data
@@ -91,14 +167,19 @@ services:
       timeout: 10s
       retries: 3
 
+  # ---------------------------------------------------------------------------
   # Vulnerability Service
+  # Manages vulnerability scan results and remediation
+  # Internal port: 8000, External: 8003
+  # ---------------------------------------------------------------------------
   vuln-service:
     build: ./services/vuln-service
+    container_name: optimal-vuln-service
     ports:
       - "8003:8000"
     environment:
       - GITLAB_TOKEN=${GITLAB_TOKEN}
-      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - DATABASE_URL=postgresql://optimal_user:${POSTGRES_PASSWORD:-dev_password_123}@postgres:5432/optimal_platform
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./data:/app/data
@@ -114,17 +195,61 @@ services:
       timeout: 10s
       retries: 3
 
-  # GitLab Listener
+  # ---------------------------------------------------------------------------
+  # Integration Service (formerly GitLab Listener)
+  # Provider-agnostic CI/CD integration service
+  # Supports: GitLab, GitHub, Jenkins (future), Azure DevOps (future)
+  # Internal port: 8000, External: 8001
+  # API v1: Legacy GitLab-specific routes
+  # API v2: Provider-agnostic routes (auto-detects provider)
+  # ---------------------------------------------------------------------------
   gitlab-listener:
     build: ./integrations/gitlab-listener
+    container_name: optimal-integration-service
     ports:
       - "8001:8000"
     environment:
+      # Provider Selection (auto-detects if not set)
+      # Options: "gitlab", "github"
+      - OPTIMAL_PROVIDER=${OPTIMAL_PROVIDER:-gitlab}
+
+      # GitLab Configuration (if using GitLab)
+      - GITLAB_BASE_URL=${GITLAB_BASE_URL:-http://gitlab:80}
       - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - GITLAB_PROJECT_ID=${GITLAB_PROJECT_ID}
+      - GITLAB_WEBHOOK_SECRET=${GITLAB_WEBHOOK_SECRET}
+      - GITLAB_VULN_LABEL=${GITLAB_VULN_LABEL:-vulnerability}
+      - GITLAB_MISCONFIG_LABEL=${GITLAB_MISCONFIG_LABEL:-misconfiguration}
+      - GITLAB_POAM_LABEL=${GITLAB_POAM_LABEL:-poam}
+      - GITLAB_AUTO_LABEL=${GITLAB_AUTO_LABEL:-auto-created}
+      - GITLAB_SLA_CRITICAL_DAYS=${GITLAB_SLA_CRITICAL_DAYS:-7}
+      - GITLAB_SLA_HIGH_DAYS=${GITLAB_SLA_HIGH_DAYS:-30}
+      - GITLAB_SLA_MEDIUM_DAYS=${GITLAB_SLA_MEDIUM_DAYS:-90}
+      - GITLAB_SLA_LOW_DAYS=${GITLAB_SLA_LOW_DAYS:-180}
+
+      # GitHub Configuration (if using GitHub)
+      - GITHUB_API_URL=${GITHUB_API_URL:-https://api.github.com}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_ORG=${GITHUB_ORG}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - GITHUB_VULN_LABEL=${GITHUB_VULN_LABEL:-vulnerability}
+      - GITHUB_MISCONFIG_LABEL=${GITHUB_MISCONFIG_LABEL:-misconfiguration}
+      - GITHUB_POAM_LABEL=${GITHUB_POAM_LABEL:-poam}
+      - GITHUB_AUTO_LABEL=${GITHUB_AUTO_LABEL:-auto-created}
+      - GITHUB_SLA_CRITICAL_DAYS=${GITHUB_SLA_CRITICAL_DAYS:-7}
+      - GITHUB_SLA_HIGH_DAYS=${GITHUB_SLA_HIGH_DAYS:-30}
+      - GITHUB_SLA_MEDIUM_DAYS=${GITHUB_SLA_MEDIUM_DAYS:-90}
+      - GITHUB_SLA_LOW_DAYS=${GITHUB_SLA_LOW_DAYS:-180}
+
+      # Internal service URLs
       - SBOM_SERVICE_URL=http://sbom-service:8000
       - VULN_SERVICE_URL=http://vuln-service:8000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://optimal_user:dev_password_123@postgres:5432/optimal_platform}
+      - INGESTION_TOKEN=${INGESTION_TOKEN}
     volumes:
       - ./data:/app/data
+      - ./integrations/adapters:/app/adapters  # Mount adapters for provider-agnostic API
     depends_on:
       - sbom-service
       - vuln-service
@@ -137,35 +262,15 @@ services:
       timeout: 10s
       retries: 3
 
-  # Apollo Scanning Agent
-  apollo-agent:
-    build: 
-      context: ./apps/scanning-agent
-      dockerfile: Dockerfile.apollo
-    environment:
-      - API_GATEWAY_URL=http://api-gateway:8000
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./data:/app/data
-      - apollo-data:/var/lib/apollo-agent
-    depends_on:
-      - api-gateway
-    networks:
-      - optimal-network
-    restart: unless-stopped
-    privileged: true
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Worker Service
+  # ---------------------------------------------------------------------------
+  # Background Worker
+  # Handles async tasks (report generation, scans, etc.)
+  # ---------------------------------------------------------------------------
   worker:
     build: ./services/worker
+    container_name: optimal-worker
     environment:
-      - DATABASE_URL=postgresql://optimal_user:password@postgres:5432/optimal_platform
+      - DATABASE_URL=postgresql://optimal_user:${POSTGRES_PASSWORD:-dev_password_123}@postgres:5432/optimal_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
       - postgres
@@ -179,9 +284,54 @@ services:
       timeout: 10s
       retries: 3
 
-  # Prometheus Monitoring
+  # ===========================================================================
+  # SECURITY AGENTS (Optional - commented out by default)
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Optimal Security Scanner Agent
+  # Runtime container security scanning
+  # Uncomment to enable
+  # ---------------------------------------------------------------------------
+  # security-scanner:
+  #   build: 
+  #     context: ./agents/optimal-scanner
+  #     dockerfile: Dockerfile
+  #   container_name: optimal-security-scanner
+  #   environment:
+  #     - API_GATEWAY_URL=http://api-gateway:8000
+  #     - DOCKER_HOST=unix:///var/run/docker.sock
+  #     - GITLAB_TOKEN=${GITLAB_TOKEN}
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:rw
+  #     - ./data:/app/data
+  #     - scanner-data:/var/lib/optimal-scanner
+  #   depends_on:
+  #     - api-gateway
+  #   networks:
+  #     - optimal-network
+  #   restart: unless-stopped
+  #   privileged: true
+  #   user: root
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "print('healthy')"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+
+  # ===========================================================================
+  # MONITORING & OBSERVABILITY
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # Prometheus
+  # Metrics collection and storage
+  # Access at: http://localhost:9090
+  # ---------------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:latest
+    container_name: optimal-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -203,13 +353,18 @@ services:
       timeout: 10s
       retries: 3
 
-  # Grafana Dashboard
+  # ---------------------------------------------------------------------------
+  # Grafana
+  # Dashboards and visualization
+  # Access at: http://localhost:3001 (admin/admin)
+  # ---------------------------------------------------------------------------
   grafana:
     image: grafana/grafana:latest
+    container_name: optimal-grafana
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -224,9 +379,20 @@ services:
       timeout: 10s
       retries: 3
 
+  # ===========================================================================
+  # EXTERNAL SERVICES (Optional - can be disabled)
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
   # GitLab CE
+  # Self-hosted GitLab instance (optional - can use external GitLab)
+  # Access at: http://localhost:8080
+  # Note: Takes 2-3 minutes to fully start
+  # Comment out if using external GitLab
+  # ---------------------------------------------------------------------------
   gitlab:
     image: gitlab/gitlab-ce:latest
+    container_name: optimal-gitlab
     ports:
       - "8080:80"
       - "2222:22"
@@ -242,14 +408,19 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 180s  # GitLab needs time to initialize
 
+# =============================================================================
+# VOLUMES
+# =============================================================================
 volumes:
   postgres-data:
-  apollo-data:
+    driver: local
+  scanner-data:
+    driver: local
   prometheus-data:
+    driver: local
   grafana-data:
+    driver: local
   gitlab-data:
-
-networks:
-  optimal-network:
-    driver: bridge 
+    driver: local

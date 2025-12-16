@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 // In-memory storage for demo (use database in production)
@@ -77,4 +78,8 @@ export async function GET(request: Request) {
     );
   }
 }
+
+
+
+
 

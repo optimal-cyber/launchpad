@@ -35,3 +35,7 @@ elasticache_node_type = "cache.r5.large"
 domain_name = "gooptimal.io"
 use_route53 = true
 
+
+
+
+

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Shield, AlertTriangle, CheckCircle, Clock, Package, GitBranch, ChevronRight, Search, Filter, RefreshCw, ExternalLink, Eye, FileText, BarChart3 } from 'lucide-react';
+import { usePlatformMetrics, clearMetricsCache } from '@/lib/usePlatformMetrics';
 
 interface Environment {
   id: string;
@@ -24,6 +25,10 @@ export default function HubPage() {
   const [selectedEnv, setSelectedEnv] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'environments' | 'vulnerabilities' | 'sbom' | 'compliance'>('environments');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Use shared platform metrics hook
+  const { metrics, loading, refresh } = usePlatformMetrics();
+  const vulnMetrics = metrics.vulnerabilities;
 
   const environments: Environment[] = [
     {
@@ -90,12 +95,8 @@ export default function HubPage() {
     }
   };
 
-  const totalVulns = environments.reduce((acc, env) => ({
-    critical: acc.critical + env.vulnCount.critical,
-    high: acc.high + env.vulnCount.high,
-    medium: acc.medium + env.vulnCount.medium,
-    low: acc.low + env.vulnCount.low
-  }), { critical: 0, high: 0, medium: 0, low: 0 });
+  // Use shared vulnerability metrics instead of calculating from environments
+  const totalVulns = vulnMetrics;
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -108,7 +109,13 @@ export default function HubPage() {
               <p className="text-sm text-slate-400">Centralized security and deployment management</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button className="flex items-center space-x-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors">
+              <button 
+                className="flex items-center space-x-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
+                onClick={() => {
+                  clearMetricsCache();
+                  refresh();
+                }}
+              >
                 <RefreshCw className="h-4 w-4" />
                 <span>Refresh</span>
               </button>
@@ -339,4 +346,7 @@ export default function HubPage() {
     </div>
   );
 }
+
+
+
 

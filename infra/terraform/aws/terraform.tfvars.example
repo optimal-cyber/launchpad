@@ -73,3 +73,7 @@ elasticache_node_type = "cache.t3.micro"  # Use cache.r5.large for production
 domain_name = ""  # e.g., "gooptimal.io"
 use_route53 = false  # Set to true if using Route53 for DNS
 
+
+
+
+

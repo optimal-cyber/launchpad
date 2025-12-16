@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Copy, Check, Terminal, Box, Key, ArrowRight, Shield, Zap, Cloud, GitBranch, CheckCircle } from 'lucide-react';
 
 type Step = 'welcome' | 'token' | 'install' | 'verify' | 'done';
@@ -40,8 +41,17 @@ export default function OnboardingPage() {
   };
 
   const getInstallCommand = () => {
-    const apiUrl = typeof window !== 'undefined' ? window.location.origin.replace('3000', '8000') : 'https://api.gooptimal.io';
-    
+    // Dynamically determine API URL from current location (works for any self-hosted deployment)
+    const getApiUrl = () => {
+      if (typeof window === 'undefined') return '$OPTIMAL_API_URL';
+      const origin = window.location.origin;
+      // Handle common port mappings
+      if (origin.includes(':3000')) return origin.replace(':3000', ':8000');
+      // For production deployments, assume api. subdomain or /api path
+      return process.env.NEXT_PUBLIC_API_BASE || origin.replace('portal.', 'api.') || origin;
+    };
+    const apiUrl = getApiUrl();
+
     switch (installMethod) {
       case 'docker':
         return `docker run -d --name optimal-scanner \\
@@ -51,7 +61,8 @@ export default function OnboardingPage() {
   --token ${apiToken || 'YOUR_TOKEN'} \\
   --daemon --interval 300`;
       case 'script':
-        return `curl -sSL https://get.gooptimal.io/scanner | bash -s -- ${apiToken || 'YOUR_TOKEN'}`;
+        return `# Download and run the scanner install script
+curl -sSL ${apiUrl}/install/scanner.sh | bash -s -- ${apiToken || 'YOUR_TOKEN'} ${apiUrl}`;
       case 'kubernetes':
         return `helm install optimal-scanner optimal/scanner \\
   --set apiUrl=${apiUrl} \\
@@ -429,7 +440,7 @@ export default function OnboardingPage() {
             Need help? Check our{' '}
             <a href="/docs" className="text-teal-400 hover:text-teal-300">documentation</a>
             {' '}or{' '}
-            <a href="mailto:support@gooptimal.io" className="text-teal-400 hover:text-teal-300">contact support</a>
+<Link href="/support" className="text-teal-400 hover:text-teal-300">contact support</Link>
           </p>
         </div>
       </div>

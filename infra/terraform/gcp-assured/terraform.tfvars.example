@@ -1,0 +1,84 @@
+# =============================================================================
+# Optimal Platform - GCP Assured Workloads Configuration Example
+# Copy this file to terraform.tfvars and customize for your environment
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# REQUIRED: GCP Project Configuration
+# -----------------------------------------------------------------------------
+
+project_id = "your-gcp-project-id"
+region     = "us-central1"  # Must be FedRAMP High approved region
+zones      = ["us-central1-a", "us-central1-b", "us-central1-c"]
+
+# -----------------------------------------------------------------------------
+# REQUIRED: Assured Workloads (for FedRAMP High)
+# -----------------------------------------------------------------------------
+
+enable_assured_workloads    = true
+organization_id             = "123456789012"  # Your GCP organization ID
+billing_account             = "XXXXXX-XXXXXX-XXXXXX"  # Your billing account
+assured_workloads_folder_id = "folders/123456789"  # Folder for Assured Workloads
+
+# -----------------------------------------------------------------------------
+# Environment
+# -----------------------------------------------------------------------------
+
+environment = "production"  # development, staging, or production
+owner       = "security-team"
+
+# -----------------------------------------------------------------------------
+# Kubernetes Version
+# -----------------------------------------------------------------------------
+
+kubernetes_version = "1.29"
+
+# -----------------------------------------------------------------------------
+# Security: Authorized Admin CIDRs
+# IMPORTANT: Restrict this in production!
+# -----------------------------------------------------------------------------
+
+authorized_admin_cidrs = [
+  "10.0.0.0/8",      # Internal network
+  "192.168.1.0/24",  # VPN users
+]
+
+# -----------------------------------------------------------------------------
+# Database Configuration
+# Password should be set via TF_VAR_db_password environment variable
+# -----------------------------------------------------------------------------
+
+enable_cloud_sql = true
+cloud_sql_tier   = "db-custom-4-16384"  # 4 vCPU, 16GB RAM for production
+
+# -----------------------------------------------------------------------------
+# Redis Configuration
+# -----------------------------------------------------------------------------
+
+enable_memorystore   = true
+redis_memory_size_gb = 8
+
+# -----------------------------------------------------------------------------
+# Domain Configuration
+# -----------------------------------------------------------------------------
+
+domain_name = "gooptimal.io"
+
+subdomains = {
+  portal   = "portal"    # portal.gooptimal.io
+  keycloak = "auth"      # auth.gooptimal.io
+  gitlab   = "gitlab"    # gitlab.gooptimal.io
+  harbor   = "harbor"    # harbor.gooptimal.io
+  grafana  = "grafana"   # grafana.gooptimal.io
+  argocd   = "argocd"    # argocd.gooptimal.io
+}
+
+# -----------------------------------------------------------------------------
+# Node Pool Sizing (adjust based on workload)
+# -----------------------------------------------------------------------------
+
+app_system_node_type   = "n2-standard-4"   # System components
+app_workload_node_type = "n2-standard-8"   # Optimal Platform
+mon_node_type          = "n2-standard-8"   # Grafana, Prometheus, ELK
+sec_node_type          = "n2-standard-4"   # Falco, Kyverno, Trivy
+mgmt_node_type         = "n2-standard-4"   # Keycloak, Bastion

@@ -35,3 +35,7 @@ elasticache_node_type = "cache.t3.small"
 domain_name = "staging.gooptimal.io"
 use_route53 = true
 
+
+
+
+

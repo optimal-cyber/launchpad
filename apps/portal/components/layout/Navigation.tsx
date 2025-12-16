@@ -15,13 +15,21 @@ import {
   Zap,
   Boxes
 } from 'lucide-react';
+import { usePlatformMetrics } from '@/lib/usePlatformMetrics';
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  badgeType?: 'count' | 'label';
 }
+
+export default function Navigation() {
+  const pathname = usePathname();
+  
+  // Use shared platform metrics for dynamic badges
+  const { metrics } = usePlatformMetrics();
 
   const navigation: NavItem[] = [
     {
@@ -30,46 +38,60 @@ interface NavItem {
       icon: LayoutDashboard,
     },
     {
+      name: 'Authorization',
+      href: '/authorization',
+      icon: Shield,
+      badge: 'LIVE',
+      badgeType: 'label',
+    },
+    {
       name: 'Investor View',
       href: '/investor',
       icon: TrendingUp,
       badge: 'NEW',
+      badgeType: 'label',
     },
     {
       name: 'Process Acceleration',
       href: '/acceleration',
       icon: Zap,
       badge: 'DEMO',
+      badgeType: 'label',
     },
     {
       name: 'Enterprise',
       href: '/enterprise',
       icon: LayoutDashboard,
       badge: '5',
+      badgeType: 'label',
     },
     {
       name: 'Module Registry',
       href: '/modules',
       icon: Boxes,
       badge: 'NEW',
+      badgeType: 'label',
     },
     {
       name: 'Security Agents',
       href: '/agents',
       icon: Shield,
-      badge: '3',
+      badge: String(metrics.agents.total),
+      badgeType: 'count',
     },
     {
       name: 'Vulnerabilities',
       href: '/vulnerabilities',
       icon: AlertTriangle,
-      badge: '56',
+      badge: String(metrics.vulnerabilities.total),
+      badgeType: 'count',
     },
     {
       name: 'SBOM',
       href: '/sbom',
       icon: Package,
-      badge: '29',
+      badge: String(metrics.sboms.total),
+      badgeType: 'count',
     },
     {
       name: 'POA&M',
@@ -82,9 +104,6 @@ interface NavItem {
       icon: Settings,
     }
   ];
-
-export default function Navigation() {
-  const pathname = usePathname();
 
   const isActive = (href: string) => {
     if (href === '/overview') {

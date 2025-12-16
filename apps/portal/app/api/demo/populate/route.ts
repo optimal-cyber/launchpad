@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 // Demo data generator for trial users
@@ -261,4 +262,8 @@ export async function GET(request: Request) {
     message: 'POST to this endpoint to populate demo data'
   });
 }
+
+
+
+
 

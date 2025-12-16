@@ -48,6 +48,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# Mount API v1 routes
+from api_v1_routes import router as v1_router
+app.include_router(v1_router)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -74,6 +78,12 @@ GITLAB_PROJECT_ID = os.getenv("GITLAB_PROJECT_ID", "65646370")
 # Global storage for real data (in production, this would be a database)
 stored_vulnerabilities = []
 stored_sbom_components = []
+
+# Agent storage - stores registered agents and their heartbeat data
+# Key: agent_id, Value: agent data dict
+registered_agents: Dict[str, Dict[str, Any]] = {}
+agent_scan_results: List[Dict[str, Any]] = []
+agent_sboms: List[Dict[str, Any]] = []
 
 # GitLab headers
 gitlab_headers = {"PRIVATE-TOKEN": GITLAB_TOKEN} if GITLAB_TOKEN else {}
@@ -363,13 +373,36 @@ async def register_agent(agent_data: dict):
     """Register a new security agent"""
     try:
         agent_id = agent_data.get("agent_id")
-        agent_type = agent_data.get("agent_type")
+        agent_type = agent_data.get("agent_type", "security_scanner")
         capabilities = agent_data.get("capabilities", [])
-        
+
         logger.info(f"Registering security agent: {agent_id} ({agent_type})")
-        
-        # Store agent registration (in production, this would go to a database)
-        # For now, just log and return success
+
+        # Store agent registration
+        registered_agents[agent_id] = {
+            "agent_id": agent_id,
+            "agent_type": agent_type,
+            "capabilities": capabilities,
+            "version": agent_data.get("version", "1.0.0"),
+            "node_name": agent_data.get("node_name", ""),
+            "cluster_name": agent_data.get("cluster_name", ""),
+            "namespace": agent_data.get("namespace", ""),
+            "environment": agent_data.get("environment", "production"),
+            "runtime": agent_data.get("runtime", "unknown"),
+            "status": "active",
+            "registered_at": datetime.now().isoformat(),
+            "last_heartbeat": datetime.now().isoformat(),
+            "containers_monitored": 0,
+            "scans_completed": 0,
+            "scans_failed": 0,
+            "uptime": 0,
+            "resource_usage": {
+                "cpu_percent": 0,
+                "memory_percent": 0,
+                "disk_percent": 0,
+            },
+        }
+
         return {
             "status": "success",
             "agent_id": agent_id,
@@ -385,11 +418,45 @@ async def agent_heartbeat(heartbeat_data: dict):
     """Receive heartbeat from security agent"""
     try:
         agent_id = heartbeat_data.get("agent_id")
-        status = heartbeat_data.get("status")
+        status = heartbeat_data.get("status", "healthy")
         containers_monitored = heartbeat_data.get("containers_monitored", 0)
-        
+        uptime = heartbeat_data.get("uptime", 0)
+        resource_usage = heartbeat_data.get("resource_usage", {})
+
         logger.debug(f"Heartbeat from agent {agent_id}: {status}, {containers_monitored} containers")
-        
+
+        # Update agent data if registered
+        if agent_id in registered_agents:
+            registered_agents[agent_id].update({
+                "status": status,
+                "last_heartbeat": datetime.now().isoformat(),
+                "containers_monitored": containers_monitored,
+                "uptime": uptime,
+                "resource_usage": {
+                    "cpu_percent": resource_usage.get("cpu_percent", 0),
+                    "memory_percent": resource_usage.get("memory_percent", 0),
+                    "disk_percent": resource_usage.get("disk_percent", 0),
+                },
+            })
+            # Update scan counts if provided
+            if "scans_completed" in heartbeat_data:
+                registered_agents[agent_id]["scans_completed"] = heartbeat_data["scans_completed"]
+        else:
+            # Auto-register agent on first heartbeat
+            registered_agents[agent_id] = {
+                "agent_id": agent_id,
+                "agent_type": "security_scanner",
+                "capabilities": [],
+                "status": status,
+                "registered_at": datetime.now().isoformat(),
+                "last_heartbeat": datetime.now().isoformat(),
+                "containers_monitored": containers_monitored,
+                "scans_completed": heartbeat_data.get("scans_completed", 0),
+                "scans_failed": 0,
+                "uptime": uptime,
+                "resource_usage": resource_usage,
+            }
+
         return {
             "status": "received",
             "timestamp": datetime.now().isoformat()
@@ -399,24 +466,49 @@ async def agent_heartbeat(heartbeat_data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/agents/scan-results")
-async def agent_scan_results(scan_data: dict):
+async def receive_agent_scan_results(scan_data: dict):
     """Receive scan results from security agent"""
     try:
-        scan_id = scan_data.get("scan_id")
+        scan_id = scan_data.get("scan_id", f"scan-{int(time.time())}")
         agent_id = scan_data.get("agent_id")
         container_id = scan_data.get("container_id")
-        scan_type = scan_data.get("scan_type")
+        container_name = scan_data.get("container_name", "")
+        image = scan_data.get("image", "")
+        scan_type = scan_data.get("scan_type", "vulnerability")
         findings = scan_data.get("findings", [])
-        
+
         logger.info(f"Received scan results from {agent_id}: {scan_type} scan for container {container_id}")
         logger.info(f"Findings: {len(findings)} items")
-        
-        # Process scan results (in production, this would store in database)
-        # For now, just log the results
+
+        # Store scan results
+        scan_record = {
+            "scan_id": scan_id,
+            "agent_id": agent_id,
+            "container_id": container_id,
+            "container_name": container_name,
+            "image": image,
+            "scan_type": scan_type,
+            "findings_count": len(findings),
+            "findings": findings,
+            "severity_summary": {
+                "critical": sum(1 for f in findings if f.get("severity", "").upper() == "CRITICAL"),
+                "high": sum(1 for f in findings if f.get("severity", "").upper() == "HIGH"),
+                "medium": sum(1 for f in findings if f.get("severity", "").upper() == "MEDIUM"),
+                "low": sum(1 for f in findings if f.get("severity", "").upper() == "LOW"),
+            },
+            "timestamp": datetime.now().isoformat(),
+        }
+        agent_scan_results.append(scan_record)
+
+        # Update agent scan count
+        if agent_id in registered_agents:
+            registered_agents[agent_id]["scans_completed"] = registered_agents[agent_id].get("scans_completed", 0) + 1
+
+        # Log high severity findings
         for finding in findings:
-            if finding.get("severity") in ["critical", "high"]:
-                logger.warning(f"High severity finding: {finding}")
-        
+            if finding.get("severity", "").upper() in ["CRITICAL", "HIGH"]:
+                logger.warning(f"High severity finding: {finding.get('vulnerability_id', 'unknown')} - {finding.get('title', '')}")
+
         return {
             "status": "processed",
             "scan_id": scan_id,
@@ -449,27 +541,187 @@ async def agent_critical_alert(alert_data: dict):
         logger.error(f"Error processing critical alert: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/agents/containers")
+async def receive_agent_containers(container_data: dict):
+    """Receive container inventory from security agent"""
+    try:
+        agent_id = container_data.get("agent_id")
+        containers = container_data.get("containers", [])
+
+        logger.debug(f"Received container inventory from {agent_id}: {len(containers)} containers")
+
+        # Update agent's container count
+        if agent_id in registered_agents:
+            registered_agents[agent_id]["containers_monitored"] = len(containers)
+            registered_agents[agent_id]["last_container_update"] = datetime.now().isoformat()
+
+        return {
+            "status": "received",
+            "containers_count": len(containers),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error processing container inventory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/sbom")
+async def receive_agent_sbom(sbom_data: dict):
+    """Receive SBOM from security agent"""
+    try:
+        agent_id = sbom_data.get("agent_id")
+        container_id = sbom_data.get("container_id")
+        container_name = sbom_data.get("container_name", "")
+        image = sbom_data.get("image", "")
+        sbom = sbom_data.get("sbom", {})
+        sbom_format = sbom_data.get("format", "cyclonedx-json")
+
+        logger.info(f"Received SBOM from {agent_id} for {image}")
+
+        # Store SBOM
+        sbom_record = {
+            "sbom_id": f"sbom-{int(time.time())}",
+            "agent_id": agent_id,
+            "container_id": container_id,
+            "container_name": container_name,
+            "image": image,
+            "format": sbom_format,
+            "components_count": len(sbom.get("components", [])),
+            "timestamp": datetime.now().isoformat(),
+        }
+        agent_sboms.append(sbom_record)
+
+        return {
+            "status": "received",
+            "sbom_id": sbom_record["sbom_id"],
+            "components_count": sbom_record["components_count"],
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error processing SBOM: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/scans/results")
+async def receive_scan_results(scan_data: dict):
+    """Receive scan results (alternative endpoint used by agent)"""
+    try:
+        agent_id = scan_data.get("agent_id")
+        scan_type = scan_data.get("scan_type", "vulnerability")
+        target = scan_data.get("target", "")
+        results = scan_data.get("results", {})
+
+        logger.info(f"Received {scan_type} scan results from {agent_id} for {target}")
+
+        # Store based on scan type
+        if scan_type == "vulnerability":
+            scan_record = {
+                "scan_id": f"scan-{int(time.time())}",
+                "agent_id": agent_id,
+                "image": target,
+                "scan_type": scan_type,
+                "findings_count": results.get("total", 0),
+                "severity_summary": results.get("summary", {}),
+                "vulnerabilities": results.get("vulnerabilities", [])[:100],  # Limit stored vulns
+                "timestamp": datetime.now().isoformat(),
+            }
+            agent_scan_results.append(scan_record)
+
+            # Update agent scan count
+            if agent_id in registered_agents:
+                registered_agents[agent_id]["scans_completed"] = registered_agents[agent_id].get("scans_completed", 0) + 1
+
+        elif scan_type == "sbom":
+            sbom_record = {
+                "sbom_id": f"sbom-{int(time.time())}",
+                "agent_id": agent_id,
+                "image": target,
+                "format": "cyclonedx",
+                "components_count": len(results.get("components", [])),
+                "timestamp": datetime.now().isoformat(),
+            }
+            agent_sboms.append(sbom_record)
+
+        return {
+            "status": "processed",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error processing scan results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/auth/validate-key")
+async def validate_api_key(request: Request):
+    """Validate agent API key and return tenant info"""
+    try:
+        # Get API key from header
+        api_key = request.headers.get("X-API-Key", "")
+
+        if not api_key:
+            raise HTTPException(status_code=401, detail="API key required")
+
+        # For now, accept any non-empty key and return demo tenant info
+        # In production, this would validate against the database
+        return {
+            "valid": True,
+            "tenant_id": "demo-tenant",
+            "tenant_name": "Demo Tenant",
+            "database_url": os.getenv("DATABASE_URL", ""),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating API key: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/agents")
 async def list_security_agents():
     """List all registered security agents"""
     try:
-        # In production, this would query the database
-        # For now, return mock data
-        return {
-            "agents": [
-                {
-                    "agent_id": "security-agent-12345678",
-                    "agent_type": "security_scanner",
-                    "status": "active",
-                    "last_heartbeat": datetime.now().isoformat(),
-                    "containers_monitored": 5,
-                    "scans_completed": 150,
-                    "scans_failed": 2
-                }
-            ],
-            "total": 1,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Return real registered agents, or demo agent if none registered
+        if registered_agents:
+            agents_list = list(registered_agents.values())
+
+            # Check for stale agents (no heartbeat in 2 minutes)
+            for agent in agents_list:
+                try:
+                    last_hb = datetime.fromisoformat(agent.get("last_heartbeat", ""))
+                    if (datetime.now() - last_hb).total_seconds() > 120:
+                        agent["status"] = "offline"
+                except:
+                    pass
+
+            return {
+                "agents": agents_list,
+                "total": len(agents_list),
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            # Return demo agent when no real agents are registered
+            return {
+                "agents": [
+                    {
+                        "agent_id": "demo-agent-001",
+                        "agent_type": "security_scanner",
+                        "status": "active",
+                        "node_name": "demo-node-1",
+                        "cluster_name": "demo-cluster",
+                        "environment": "demo",
+                        "capabilities": ["vulnerability_scan", "sbom_generation", "runtime_security"],
+                        "registered_at": datetime.now().isoformat(),
+                        "last_heartbeat": datetime.now().isoformat(),
+                        "containers_monitored": 12,
+                        "scans_completed": 45,
+                        "scans_failed": 2,
+                        "uptime": 86400,
+                        "resource_usage": {
+                            "cpu_percent": 15.5,
+                            "memory_percent": 32.8,
+                            "disk_percent": 45.2,
+                        },
+                    }
+                ],
+                "total": 1,
+                "timestamp": datetime.now().isoformat()
+            }
     except Exception as e:
         logger.error(f"Error listing agents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -478,24 +730,46 @@ async def list_security_agents():
 async def get_scan_results(limit: int = 100, agent_id: Optional[str] = None):
     """Get scan results from security agents"""
     try:
-        # In production, this would query the database
-        # For now, return mock data
-        return {
-            "scan_results": [
-                {
-                    "scan_id": "scan_1234567890",
-                    "agent_id": "security-agent-12345678",
-                    "container_id": "container_abc123",
-                    "scan_type": "vulnerability",
-                    "severity": "high",
-                    "findings_count": 3,
-                    "timestamp": datetime.now().isoformat()
-                }
-            ],
-            "total": 1,
-            "limit": limit,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Filter by agent_id if provided
+        results = agent_scan_results
+        if agent_id:
+            results = [r for r in results if r.get("agent_id") == agent_id]
+
+        # Apply limit and return most recent first
+        results = sorted(results, key=lambda x: x.get("timestamp", ""), reverse=True)[:limit]
+
+        if results:
+            return {
+                "scan_results": results,
+                "total": len(results),
+                "limit": limit,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            # Return demo scan result when no real results
+            return {
+                "scan_results": [
+                    {
+                        "scan_id": "demo-scan-001",
+                        "agent_id": "demo-agent-001",
+                        "container_id": "demo-container-abc123",
+                        "container_name": "nginx",
+                        "image": "nginx:1.25.0",
+                        "scan_type": "vulnerability",
+                        "findings_count": 8,
+                        "severity_summary": {
+                            "critical": 1,
+                            "high": 3,
+                            "medium": 2,
+                            "low": 2,
+                        },
+                        "timestamp": datetime.now().isoformat()
+                    }
+                ],
+                "total": 1,
+                "limit": limit,
+                "timestamp": datetime.now().isoformat()
+            }
     except Exception as e:
         logger.error(f"Error getting scan results: {e}")
         raise HTTPException(status_code=500, detail=str(e))

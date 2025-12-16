@@ -1,0 +1,290 @@
+# =============================================================================
+# Optimal Platform - gooptimal.io Production Configuration
+# Multi-subdomain deployment with SSL via cert-manager
+# =============================================================================
+
+global:
+  environment: "production"
+  domain: "gooptimal.io"
+  imagePullSecrets: []
+
+# =============================================================================
+# Portal (launchpad.gooptimal.io)
+# =============================================================================
+portal:
+  enabled: true
+  replicaCount: 3
+
+  image:
+    repository: optimal-platform-portal
+    tag: "latest"
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: launchpad.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: launchpad-tls
+        hosts:
+          - launchpad.gooptimal.io
+
+  env:
+    NODE_ENV: "production"
+    NEXT_PUBLIC_API_URL: "https://api.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_URL: "https://keycloak.gooptimal.io"
+    NEXT_PUBLIC_KEYCLOAK_REALM: "optimal"
+    NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "optimal-portal"
+    # Integration URLs
+    NEXT_PUBLIC_GITLAB_URL: "https://gitlab.gooptimal.io"
+    NEXT_PUBLIC_HARBOR_URL: "https://harbor.gooptimal.io"
+    NEXT_PUBLIC_GRAFANA_URL: "https://grafana.gooptimal.io"
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# =============================================================================
+# API Gateway (api.gooptimal.io)
+# =============================================================================
+apiGateway:
+  enabled: true
+  replicaCount: 3
+
+  image:
+    repository: optimal-platform-api-gateway
+    tag: "latest"
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "200m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: api.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-tls
+        hosts:
+          - api.gooptimal.io
+
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# =============================================================================
+# Keycloak SSO (keycloak.gooptimal.io)
+# =============================================================================
+keycloak:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "23.0"
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: keycloak.gooptimal.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: keycloak-tls
+        hosts:
+          - keycloak.gooptimal.io
+
+  env:
+    KC_HOSTNAME: "keycloak.gooptimal.io"
+    KC_PROXY: "edge"
+    KC_HTTP_ENABLED: "true"
+
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# =============================================================================
+# GitLab (gitlab.gooptimal.io) - External Service
+# =============================================================================
+gitlab:
+  enabled: true
+  # If using external GitLab (gitlab.com or self-hosted)
+  external: true
+  url: "https://gitlab.gooptimal.io"
+  # If deploying GitLab in-cluster, set external: false
+
+# =============================================================================
+# Harbor Registry (harbor.gooptimal.io)
+# =============================================================================
+harbor:
+  enabled: true
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: harbor.gooptimal.io
+    tls:
+      - secretName: harbor-tls
+        hosts:
+          - harbor.gooptimal.io
+
+# =============================================================================
+# Grafana Monitoring (grafana.gooptimal.io)
+# =============================================================================
+monitoring:
+  enabled: true
+
+  grafana:
+    enabled: true
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      hosts:
+        - grafana.gooptimal.io
+      tls:
+        - secretName: grafana-tls
+          hosts:
+            - grafana.gooptimal.io
+
+    env:
+      GF_SERVER_ROOT_URL: "https://grafana.gooptimal.io"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "Keycloak"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://keycloak.gooptimal.io/realms/optimal/protocol/openid-connect/auth"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://keycloak.gooptimal.io/realms/optimal/protocol/openid-connect/token"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "https://keycloak.gooptimal.io/realms/optimal/protocol/openid-connect/userinfo"
+
+  prometheus:
+    enabled: true
+    retention: 15d
+    storageSize: 50Gi
+
+# =============================================================================
+# Additional Services
+# =============================================================================
+sbomService:
+  enabled: true
+  replicaCount: 2
+
+vulnService:
+  enabled: true
+  replicaCount: 2
+
+gitlabListener:
+  enabled: true
+  replicaCount: 2
+
+worker:
+  enabled: true
+  replicaCount: 3
+
+securityAgent:
+  enabled: true
+
+# =============================================================================
+# Database (use external Cloud SQL for production)
+# =============================================================================
+postgresql:
+  enabled: false  # Use Cloud SQL
+
+externalDatabase:
+  host: ""        # Set via --set or secrets
+  port: 5432
+  database: optimal_platform
+  user: optimal_admin
+  existingSecret: "optimal-db-credentials"
+  existingSecretPasswordKey: "password"
+
+# =============================================================================
+# Redis (use external Memorystore for production)
+# =============================================================================
+redis:
+  enabled: false  # Use Memorystore
+
+externalRedis:
+  host: ""        # Set via --set or secrets
+  port: 6379
+  existingSecret: "optimal-redis-credentials"
+  existingSecretPasswordKey: "password"
+
+# =============================================================================
+# Service Account
+# =============================================================================
+serviceAccount:
+  create: true
+  name: "optimal-platform"
+  annotations:
+    iam.gke.io/gcp-service-account: "optimal-platform@YOUR_PROJECT.iam.gserviceaccount.com"
+
+# =============================================================================
+# Network Policies & Security
+# =============================================================================
+networkPolicies:
+  enabled: true
+
+podSecurityStandards:
+  enabled: true
+  level: restricted
+
+podDisruptionBudgets:
+  enabled: true
+  minAvailable: 1

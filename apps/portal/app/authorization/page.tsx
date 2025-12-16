@@ -1,734 +1,1129 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  AlertCircle,
-  FileText,
-  Download,
-  RefreshCw,
-  Eye,
-  User,
-  Calendar,
-  AlertTriangle,
-  CheckSquare,
-  Edit3,
-  MessageSquare
+import Link from 'next/link';
+import {
+  Shield, CheckCircle, XCircle, AlertTriangle, Clock,
+  GitBranch, Package, FileText, Award, Lock, Zap,
+  ExternalLink, ChevronRight, Activity, BarChart3, Upload, Download,
+  UserCheck, Users, Briefcase, ClipboardCheck, Send, MessageSquare
 } from 'lucide-react';
 
-interface Application {
-  id: string;
+interface PipelineStage {
   name: string;
-  systemId: string;
-  description: string;
-  impactLevel: 'low' | 'moderate' | 'high';
-  status: 'pending_review' | 'under_review' | 'approved' | 'rejected' | 'conditional';
+  status: 'passed' | 'failed' | 'warning' | 'running';
+  jobs: {
+    name: string;
+    status: 'passed' | 'failed' | 'warning';
+    duration: string;
+    findings?: number;
+  }[];
+}
+
+interface AuthorizationEvidence {
+  id: string;
+  component: string;
+  project: string;
+  pipeline_id: string;
+  commit: string;
+  status: 'authorized' | 'pending' | 'rejected';
+  compliance_score: number;
+  timestamp: string;
+  stages: PipelineStage[];
+  artifacts: {
+    sbom: boolean;
+    vulnerabilities: boolean;
+    secrets: boolean;
+    compliance: boolean;
+    scorecard: boolean;
+  };
+}
+
+interface ScorecardResult {
+  date: string;
+  checks: {
+    name: string;
+    score: number;
+    reason: string;
+  }[];
+  score: number;
+  metadata?: Record<string, any>;
+}
+
+interface Approval {
+  role: 'AO' | 'ISSO' | 'SCA' | 'ISSM';
+  roleName: string;
+  status: 'pending' | 'approved' | 'rejected' | 'not_required';
+  approver?: string;
+  timestamp?: string;
+  comments?: string;
+}
+
+interface AuthorizationPackage {
+  id: string;
+  systemName: string;
+  component: string;
+  status: 'draft' | 'in_review' | 'approved' | 'rejected';
   submittedDate: string;
-  reviewedDate?: string;
-  expirationDate?: string;
-  authorizedBy?: string;
-  securityScore: number;
-  vulnerabilities: {
-    critical: number;
-    high: number;
-    medium: number;
-    low: number;
-  };
-  poamItems: number;
-  controlsImplemented: number;
-  controlsTotal: number;
-  documents: {
-    ssp: boolean;
-    poam: boolean;
-    sar: boolean;
-    contingencyPlan: boolean;
-  };
-  submittedBy: string;
-  notes?: string;
+  targetDate: string;
+  riskLevel: 'low' | 'moderate' | 'high';
+  approvals: Approval[];
+  evidenceIds: string[];
 }
 
 export default function AuthorizationPage() {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [filteredApplications, setFilteredApplications] = useState<Application[]>([]);
+  const [evidence, setEvidence] = useState<AuthorizationEvidence[]>([]);
+  const [selectedEvidence, setSelectedEvidence] = useState<AuthorizationEvidence | null>(null);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [impactFilter, setImpactFilter] = useState('all');
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewDecision, setReviewDecision] = useState<'approved' | 'rejected' | 'conditional' | null>(null);
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [aoSignature, setAOSignature] = useState('');
+  const [scorecardResults, setScorecardResults] = useState<Record<string, ScorecardResult>>({});
+  const [showScorecardModal, setShowScorecardModal] = useState(false);
+  const [showEmassModal, setShowEmassModal] = useState(false);
+  const [emassSystemId, setEmassSystemId] = useState<string>('');
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<AuthorizationPackage | null>(null);
+  const [approvalComment, setApprovalComment] = useState('');
+  const [currentUserRole, setCurrentUserRole] = useState<'AO' | 'ISSO' | 'SCA' | 'ISSM'>('ISSO');
+  const [authPackages, setAuthPackages] = useState<AuthorizationPackage[]>([
+    {
+      id: 'pkg-001',
+      systemName: 'Optimal Platform',
+      component: 'flask-container-test',
+      status: 'in_review',
+      submittedDate: '2025-12-10',
+      targetDate: '2025-12-20',
+      riskLevel: 'moderate',
+      approvals: [
+        { role: 'SCA', roleName: 'Security Control Assessor', status: 'approved', approver: 'Sarah Chen', timestamp: '2025-12-11T14:30:00Z', comments: 'Security controls validated' },
+        { role: 'ISSO', roleName: 'Information System Security Officer', status: 'pending' },
+        { role: 'ISSM', roleName: 'Information System Security Manager', status: 'pending' },
+        { role: 'AO', roleName: 'Authorizing Official', status: 'pending' }
+      ],
+      evidenceIds: ['2202794428']
+    },
+    {
+      id: 'pkg-002',
+      systemName: 'Optimal Platform',
+      component: 'api-gateway',
+      status: 'draft',
+      submittedDate: '2025-12-12',
+      targetDate: '2025-12-25',
+      riskLevel: 'high',
+      approvals: [
+        { role: 'SCA', roleName: 'Security Control Assessor', status: 'pending' },
+        { role: 'ISSO', roleName: 'Information System Security Officer', status: 'pending' },
+        { role: 'ISSM', roleName: 'Information System Security Manager', status: 'pending' },
+        { role: 'AO', roleName: 'Authorizing Official', status: 'pending' }
+      ],
+      evidenceIds: []
+    },
+    {
+      id: 'pkg-003',
+      systemName: 'Optimal Platform',
+      component: 'portal-frontend',
+      status: 'approved',
+      submittedDate: '2025-11-01',
+      targetDate: '2025-11-15',
+      riskLevel: 'low',
+      approvals: [
+        { role: 'SCA', roleName: 'Security Control Assessor', status: 'approved', approver: 'Sarah Chen', timestamp: '2025-11-05T10:00:00Z' },
+        { role: 'ISSO', roleName: 'Information System Security Officer', status: 'approved', approver: 'Michael Torres', timestamp: '2025-11-08T11:30:00Z' },
+        { role: 'ISSM', roleName: 'Information System Security Manager', status: 'approved', approver: 'Emily Davis', timestamp: '2025-11-10T09:15:00Z' },
+        { role: 'AO', roleName: 'Authorizing Official', status: 'approved', approver: 'Director James Wilson', timestamp: '2025-11-12T16:00:00Z', comments: 'Authorized for production deployment' }
+      ],
+      evidenceIds: ['1989745898']
+    }
+  ]);
 
   useEffect(() => {
-    loadApplications();
+    loadAuthorizationEvidence();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [applications, statusFilter, impactFilter]);
-
-  const loadApplications = async () => {
+  const loadScorecardResults = async (projectId: string, jobId: string, pipelineId: string) => {
     try {
-      // Load from localStorage or use mock data
-      const storedApps = localStorage.getItem('ato_applications');
-      let mockData: Application[] = [];
-      
-      if (storedApps) {
-        mockData = JSON.parse(storedApps);
-      } else {
-        // Default mock data
-        mockData = [
-          {
-            id: '1',
-            name: 'Flask Container Application',
-            systemId: 'SYS-2025-001',
-            description: 'Python Flask web application for customer portal',
-            impactLevel: 'moderate',
-            status: 'pending_review',
-            submittedDate: '2025-10-15',
-            securityScore: 87,
-            vulnerabilities: {
-              critical: 0,
-              high: 3,
-              medium: 12,
-              low: 8
-            },
-            poamItems: 3,
-            controlsImplemented: 285,
-            controlsTotal: 325,
-            documents: {
-              ssp: true,
-              poam: true,
-              sar: true,
-              contingencyPlan: true
-            },
-            submittedBy: 'John Doe - System Owner'
-          },
-          {
-            id: '2',
-            name: 'API Gateway Service',
-            systemId: 'SYS-2025-002',
-            description: 'RESTful API gateway for microservices architecture',
-            impactLevel: 'high',
-            status: 'under_review',
-            submittedDate: '2025-10-10',
-            securityScore: 92,
-            vulnerabilities: {
-              critical: 0,
-              high: 1,
-              medium: 5,
-              low: 3
-            },
-            poamItems: 1,
-            controlsImplemented: 310,
-            controlsTotal: 325,
-            documents: {
-              ssp: true,
-              poam: true,
-              sar: true,
-              contingencyPlan: true
-            },
-            submittedBy: 'Jane Smith - System Owner'
-          },
-          {
-            id: '3',
-            name: 'Database Cluster',
-            systemId: 'SYS-2025-003',
-            description: 'PostgreSQL database cluster for enterprise data',
-            impactLevel: 'high',
-            status: 'approved',
-            submittedDate: '2025-09-20',
-            reviewedDate: '2025-10-05',
-            expirationDate: '2026-10-05',
-            authorizedBy: 'Ryan Gutwein - Authorizing Official',
-            securityScore: 95,
-            vulnerabilities: {
-              critical: 0,
-              high: 0,
-              medium: 2,
-              low: 1
-            },
-            poamItems: 0,
-            controlsImplemented: 320,
-            controlsTotal: 325,
-            documents: {
-              ssp: true,
-              poam: true,
-              sar: true,
-              contingencyPlan: true
-            },
-            submittedBy: 'Bob Johnson - System Owner',
-            notes: 'All security controls verified and approved for 1-year ATO'
-          }
-        ];
-        localStorage.setItem('ato_applications', JSON.stringify(mockData));
+      const response = await fetch(`/api/gitlab/scorecard?project_id=${projectId}&job_id=${jobId}&pipeline_id=${pipelineId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setScorecardResults(prev => ({
+            ...prev,
+            [pipelineId]: data.data,
+          }));
+        }
       }
-      
-      setApplications(mockData);
     } catch (error) {
-      console.error('Error loading applications:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error loading scorecard:', error);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = applications;
+  const syncToEmass = async (evidence: AuthorizationEvidence) => {
+    try {
+      // Create POA&Ms from vulnerabilities
+      const response = await fetch(`/api/emass/systems/${emassSystemId}/poams`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          controlAcronym: 'SC-7',
+          weaknessName: `Security findings from ${evidence.component}`,
+          weaknessDescription: `Pipeline ${evidence.pipeline_id} found ${evidence.compliance_score}% compliance`,
+          severity: evidence.compliance_score < 80 ? 'high' : 'medium',
+          remediation: 'Review and address security findings',
+          scheduledCompletionDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          status: 'open',
+        }),
+      });
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(app => app.status === statusFilter);
-    }
-
-    if (impactFilter !== 'all') {
-      filtered = filtered.filter(app => app.impactLevel === impactFilter);
-    }
-
-    setFilteredApplications(filtered);
-  };
-
-  const handleReviewApplication = (app: Application) => {
-    setSelectedApp(app);
-    setReviewDecision(null);
-    setReviewNotes('');
-    setAOSignature('');
-    setShowReviewModal(true);
-  };
-
-  const handleSubmitReview = () => {
-    if (!selectedApp || !reviewDecision || !aoSignature) {
-      alert('Please complete all required fields');
-      return;
-    }
-
-    const updatedApps = applications.map(app => {
-      if (app.id === selectedApp.id) {
-        return {
-          ...app,
-          status: reviewDecision,
-          reviewedDate: new Date().toISOString().split('T')[0],
-          authorizedBy: aoSignature,
-          notes: reviewNotes,
-          expirationDate: reviewDecision === 'approved' 
-            ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            : undefined
-        };
+      if (response.ok) {
+        alert('Successfully synced to eMASS!');
+        setShowEmassModal(false);
+      } else {
+        throw new Error('Failed to sync to eMASS');
       }
-      return app;
-    });
+    } catch (error) {
+      console.error('Error syncing to eMASS:', error);
+      alert('Failed to sync to eMASS. Please check configuration.');
+    }
+  };
 
-    localStorage.setItem('ato_applications', JSON.stringify(updatedApps));
-    setApplications(updatedApps);
-    setShowReviewModal(false);
-    setSelectedApp(null);
+  const loadAuthorizationEvidence = async () => {
+    try {
+      // Try to fetch real data from API
+      const response = await fetch('/api/authorization/evidence');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setEvidence(data);
+          setSelectedEvidence(data[0]);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (error) {
+      console.log('Using demo data from flask-container-test');
+    }
+
+    // Real data from flask-container-test pipeline #2202794428
+    const realEvidence: AuthorizationEvidence[] = [
+      {
+        id: '2202794428',
+        component: 'flask-container-test',
+        project: 'r.gutwein/flask-container-test',
+        pipeline_id: '2202794428',
+        commit: 'd6a08cf1',
+        status: 'authorized',
+        compliance_score: 92,
+        timestamp: '31 minutes ago',
+        stages: [
+          {
+            name: 'build',
+            status: 'passed',
+            jobs: [
+              { name: 'build', status: 'passed', duration: '9.87s' }
+            ]
+          },
+          {
+            name: 'test',
+            status: 'passed',
+            jobs: [
+              { name: 'container_scanning', status: 'passed', duration: '182.13s', findings: 0 },
+              { name: 'secret_detection', status: 'passed', duration: '6.45s', findings: 0 },
+              { name: 'semgrep-sast', status: 'passed', duration: '13.95s', findings: 4 }
+            ]
+          },
+          {
+            name: 'sbom',
+            status: 'passed',
+            jobs: [
+              { name: 'sbom_syft', status: 'passed', duration: '247.84s' }
+            ]
+          },
+          {
+            name: 'compliance',
+            status: 'passed',
+            jobs: [
+              { name: 'compliance_trivy', status: 'passed', duration: '14.10s', findings: 2 }
+            ]
+          },
+          {
+            name: 'scorecard',
+            status: 'warning',
+            jobs: [
+              { name: 'scorecard', status: 'warning', duration: '4.65s' }
+            ]
+          }
+        ],
+        artifacts: {
+          sbom: true,
+          vulnerabilities: true,
+          secrets: true,
+          compliance: true,
+          scorecard: true
+        }
+      },
+      // Previous pipeline for comparison
+      {
+        id: '1989745898',
+        component: 'flask-container-test',
+        project: 'r.gutwein/flask-container-test',
+        pipeline_id: '1989745898',
+        commit: '2f54fe0f',
+        status: 'authorized',
+        compliance_score: 94,
+        timestamp: '3 months ago',
+        stages: [
+          {
+            name: 'build',
+            status: 'passed',
+            jobs: [
+              { name: 'build', status: 'passed', duration: '08:02' }
+            ]
+          },
+          {
+            name: 'test',
+            status: 'passed',
+            jobs: [
+              { name: 'container_scanning', status: 'passed', duration: '08:12', findings: 0 },
+              { name: 'secret_detection', status: 'passed', duration: '08:01', findings: 0 },
+              { name: 'semgrep-sast', status: 'passed', duration: '08:00', findings: 2 }
+            ]
+          },
+          {
+            name: 'sbom',
+            status: 'passed',
+            jobs: [
+              { name: 'sbom_syft', status: 'passed', duration: '08:00' }
+            ]
+          },
+          {
+            name: 'compliance',
+            status: 'warning',
+            jobs: [
+              { name: 'compliance_trivy', status: 'warning', duration: '08:01', findings: 3 }
+            ]
+          },
+          {
+            name: 'scorecard',
+            status: 'warning',
+            jobs: [
+              { name: 'scorecard', status: 'warning', duration: '08:00' }
+            ]
+          }
+        ],
+        artifacts: {
+          sbom: true,
+          vulnerabilities: true,
+          secrets: true,
+          compliance: true,
+          scorecard: true
+        }
+      }
+    ];
+
+    setEvidence(realEvidence);
+    setSelectedEvidence(realEvidence[0]);
+    setLoading(false);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'passed':
+      case 'authorized':
+        return <CheckCircle className="h-5 w-5 text-green-400" />;
+      case 'failed':
+      case 'rejected':
+        return <XCircle className="h-5 w-5 text-red-400" />;
+      case 'warning':
+      case 'pending':
+        return <AlertTriangle className="h-5 w-5 text-yellow-400" />;
+      case 'running':
+        return <Clock className="h-5 w-5 text-blue-400 animate-spin" />;
+      default:
+        return <Clock className="h-5 w-5 text-gray-400" />;
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending_review': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200';
-      case 'under_review': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200';
-      case 'approved': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200';
-      case 'rejected': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200';
-      case 'conditional': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200';
-      default: return 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-200';
+      case 'passed':
+      case 'authorized':
+        return 'text-green-400';
+      case 'failed':
+      case 'rejected':
+        return 'text-red-400';
+      case 'warning':
+      case 'pending':
+        return 'text-yellow-400';
+      default:
+        return 'text-gray-400';
     }
   };
 
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case 'high': return 'bg-red-600';
-      case 'moderate': return 'bg-orange-600';
-      case 'low': return 'bg-blue-600';
-      default: return 'bg-gray-600';
+  const handleApproval = (packageId: string, action: 'approve' | 'reject') => {
+    setAuthPackages(prev => prev.map(pkg => {
+      if (pkg.id !== packageId) return pkg;
+
+      const updatedApprovals = pkg.approvals.map(approval => {
+        if (approval.role !== currentUserRole) return approval;
+        return {
+          ...approval,
+          status: action === 'approve' ? 'approved' as const : 'rejected' as const,
+          approver: `Current User (${currentUserRole})`,
+          timestamp: new Date().toISOString(),
+          comments: approvalComment || undefined
+        };
+      });
+
+      // Check if all approvals are complete
+      const allApproved = updatedApprovals.every(a => a.status === 'approved' || a.status === 'not_required');
+      const anyRejected = updatedApprovals.some(a => a.status === 'rejected');
+
+      return {
+        ...pkg,
+        approvals: updatedApprovals,
+        status: anyRejected ? 'rejected' : allApproved ? 'approved' : pkg.status
+      };
+    }));
+
+    setShowApprovalModal(false);
+    setApprovalComment('');
+  };
+
+  const canUserApprove = (pkg: AuthorizationPackage): boolean => {
+    const userApproval = pkg.approvals.find(a => a.role === currentUserRole);
+    if (!userApproval || userApproval.status !== 'pending') return false;
+
+    // Check if previous approvals in chain are complete
+    const roleOrder: ('SCA' | 'ISSO' | 'ISSM' | 'AO')[] = ['SCA', 'ISSO', 'ISSM', 'AO'];
+    const currentIndex = roleOrder.indexOf(currentUserRole);
+
+    for (let i = 0; i < currentIndex; i++) {
+      const prevApproval = pkg.approvals.find(a => a.role === roleOrder[i]);
+      if (prevApproval && prevApproval.status !== 'approved' && prevApproval.status !== 'not_required') {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const getRiskBadgeColor = (risk: string) => {
+    switch (risk) {
+      case 'low': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'moderate': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'high': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const getApprovalIcon = (role: string) => {
+    switch (role) {
+      case 'SCA': return ClipboardCheck;
+      case 'ISSO': return Shield;
+      case 'ISSM': return Users;
+      case 'AO': return Briefcase;
+      default: return UserCheck;
+    }
   };
-
-  const calculateMetrics = () => {
-    const total = applications.length;
-    const pending = applications.filter(a => a.status === 'pending_review').length;
-    const underReview = applications.filter(a => a.status === 'under_review').length;
-    const approved = applications.filter(a => a.status === 'approved').length;
-    const needsAttention = applications.filter(a => 
-      a.vulnerabilities.critical > 0 || a.vulnerabilities.high > 5
-    ).length;
-
-    return { total, pending, underReview, approved, needsAttention };
-  };
-
-  const metrics = calculateMetrics();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-foreground text-lg">Loading Authorization Requests...</p>
+          <div className="animate-spin h-12 w-12 border-2 border-[var(--accent-cyan)] border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-[var(--text-secondary)]">Loading authorization evidence...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[var(--bg-base)]">
       {/* Header */}
-      <div className="apollo-header">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Authorization & ATO Management</h1>
-            <p className="text-sm text-muted-foreground">Review and approve applications for Authority to Operate</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={loadApplications}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </button>
-            <button className="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-card hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-              <Download className="h-4 w-4 mr-2" />
-              Export Report
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6">
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-primary">{metrics.total}</div>
-            <div className="apollo-metric-label">Total Applications</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-yellow-500">{metrics.pending}</div>
-            <div className="apollo-metric-label">Pending Review</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-blue-500">{metrics.underReview}</div>
-            <div className="apollo-metric-label">Under Review</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-green-500">{metrics.approved}</div>
-            <div className="apollo-metric-label">Approved (ATO)</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-red-500">{metrics.needsAttention}</div>
-            <div className="apollo-metric-label">Needs Attention</div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="border-b border-[var(--border-subtle)] bg-gradient-to-r from-[var(--bg-void)] to-[var(--bg-base)]">
+        <div className="px-8 py-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending_review">Pending Review</option>
-                <option value="under_review">Under Review</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="conditional">Conditional</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Impact Level</label>
-              <select
-                value={impactFilter}
-                onChange={(e) => setImpactFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All Impact Levels</option>
-                <option value="high">High</option>
-                <option value="moderate">Moderate</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            
-            <div className="flex items-end">
-              <div className="text-sm text-muted-foreground">
-                Showing {filteredApplications.length} of {applications.length} applications
+              <div className="flex items-center space-x-3 mb-2">
+                <Shield className="h-8 w-8 text-[var(--accent-cyan)]" />
+                <h1 className="text-3xl font-bold text-[var(--text-primary)]">Authorization Pipeline</h1>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Applications Table */}
-        <div className="bg-card rounded-lg shadow-sm border border-border">
-          <div className="px-6 py-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-foreground">
-                ATO Applications ({filteredApplications.length})
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Last updated: {new Date().toLocaleString()}
+              <p className="text-[var(--text-secondary)] text-lg">
+                Continuous authorization through automated security and compliance validation
               </p>
             </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-sm text-[var(--text-secondary)]">Live Monitoring</span>
+            </div>
           </div>
-          
-          {filteredApplications.length === 0 ? (
-            <div className="p-12 text-center">
-              <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No applications found</h3>
-              <p className="text-muted-foreground">Try adjusting your filters.</p>
+
+          {/* Status Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="metric-label">Authorized Components</div>
+                <CheckCircle className="h-5 w-5 text-green-400" />
+              </div>
+              <div className="metric-value text-green-400">12</div>
+              <div className="text-xs text-[var(--text-muted)] mt-1">All requirements met</div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      System
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Impact Level
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Security Score
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Vulnerabilities
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Controls
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Submitted
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-card divide-y divide-border">
-                  {filteredApplications.map((app) => (
-                    <tr key={app.id} className="hover:bg-muted/50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-foreground">{app.name}</div>
-                          <div className="text-sm text-muted-foreground">{app.systemId}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getImpactColor(app.impactLevel)}`}>
-                          {app.impactLevel.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
-                          {app.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="text-sm font-medium text-foreground">{app.securityScore}%</div>
-                          {app.securityScore >= 90 && <CheckCircle className="h-4 w-4 ml-2 text-green-500" />}
-                          {app.securityScore < 80 && <AlertTriangle className="h-4 w-4 ml-2 text-yellow-500" />}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-1 text-xs">
-                          {app.vulnerabilities.critical > 0 && (
-                            <span className="px-2 py-1 bg-red-100 text-red-800 rounded">
-                              {app.vulnerabilities.critical} C
-                            </span>
-                          )}
-                          {app.vulnerabilities.high > 0 && (
-                            <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">
-                              {app.vulnerabilities.high} H
-                            </span>
-                          )}
-                          {app.vulnerabilities.medium > 0 && (
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
-                              {app.vulnerabilities.medium} M
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-foreground">
-                          {app.controlsImplemented}/{app.controlsTotal}
-                          <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                            <div 
-                              className="bg-primary h-1.5 rounded-full" 
-                              style={{ width: `${(app.controlsImplemented / app.controlsTotal) * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-sm text-foreground">
-                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                          {formatDate(app.submittedDate)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button 
-                          onClick={() => handleReviewApplication(app)}
-                          className="inline-flex items-center px-3 py-1.5 border border-border text-sm font-medium rounded-md text-foreground bg-card hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Review
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="metric-label">Compliance Score</div>
+                <BarChart3 className="h-5 w-5 text-[var(--accent-cyan)]" />
+              </div>
+              <div className="metric-value">94%</div>
+              <div className="text-xs text-green-400 mt-1">+3% this week</div>
             </div>
-          )}
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="metric-label">Active Pipelines</div>
+                <Activity className="h-5 w-5 text-blue-400" />
+              </div>
+              <div className="metric-value text-blue-400">3</div>
+              <div className="text-xs text-[var(--text-muted)] mt-1">Running validations</div>
+            </div>
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="metric-label">Evidence Artifacts</div>
+                <Award className="h-5 w-5 text-purple-400" />
+              </div>
+              <div className="metric-value text-purple-400">47</div>
+              <div className="text-xs text-[var(--text-muted)] mt-1">Generated today</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Review Modal */}
-      {showReviewModal && selectedApp && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4" 
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
-          onClick={() => setShowReviewModal(false)}
-        >
-          <div 
-            className="relative w-full max-w-4xl max-h-[90vh] bg-card rounded-lg shadow-2xl border border-border flex flex-col" 
-            style={{ zIndex: 51 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header - Fixed */}
-            <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0 bg-card">
-              <h3 className="text-xl font-semibold text-foreground">Authorization Review - {selectedApp.name}</h3>
-              <button
-                onClick={() => setShowReviewModal(false)}
-                className="text-muted-foreground hover:text-foreground flex-shrink-0"
-              >
-                <XCircle className="h-6 w-6" />
-              </button>
-            </div>
-            
-            {/* Modal Content - Scrollable */}
-            <div className="overflow-y-auto p-6 flex-1 bg-card">
-              <div className="flex flex-col gap-6">
-                {/* Application Details */}
-                <div className="bg-muted rounded-lg p-4 border border-border block">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">System Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">System ID</p>
-                      <p className="text-sm font-medium text-foreground">{selectedApp.systemId}</p>
+      <div className="px-8 py-8 max-w-7xl mx-auto">
+        {/* Authorization Process Overview */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Authorization Process</h2>
+          <div className="enterprise-card p-6">
+            <div className="flex items-center justify-between">
+              {[
+                { label: 'Build', icon: Package, status: 'passed' },
+                { label: 'Security Scan', icon: Shield, status: 'passed' },
+                { label: 'SBOM Generation', icon: FileText, status: 'passed' },
+                { label: 'Compliance Check', icon: Lock, status: 'warning' },
+                { label: 'Authorization', icon: Award, status: 'passed' }
+              ].map((step, idx, arr) => (
+                <div key={idx} className="flex items-center">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                      step.status === 'passed' ? 'bg-green-500/20 border-2 border-green-500' :
+                      step.status === 'warning' ? 'bg-yellow-500/20 border-2 border-yellow-500' :
+                      'bg-[var(--bg-elevated)] border-2 border-[var(--border-default)]'
+                    }`}>
+                      <step.icon className={`h-5 w-5 ${
+                        step.status === 'passed' ? 'text-green-400' :
+                        step.status === 'warning' ? 'text-yellow-400' :
+                        'text-[var(--text-muted)]'
+                      }`} />
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Impact Level</p>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getImpactColor(selectedApp.impactLevel)}`}>
-                        {selectedApp.impactLevel.toUpperCase()}
+                    <span className="text-xs text-[var(--text-secondary)] mt-2 font-medium">{step.label}</span>
+                  </div>
+                  {idx < arr.length - 1 && (
+                    <div className={`w-16 h-0.5 mx-4 ${
+                      step.status === 'passed' ? 'bg-green-500' : 'bg-[var(--border-default)]'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Authorization Approval Workflow */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Authorization Packages</h2>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-[var(--text-muted)]">Your Role:</span>
+                <select
+                  value={currentUserRole}
+                  onChange={(e) => setCurrentUserRole(e.target.value as 'AO' | 'ISSO' | 'SCA' | 'ISSM')}
+                  className="px-3 py-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded text-sm text-[var(--text-primary)]"
+                >
+                  <option value="SCA">Security Control Assessor (SCA)</option>
+                  <option value="ISSO">Info System Security Officer (ISSO)</option>
+                  <option value="ISSM">Info System Security Manager (ISSM)</option>
+                  <option value="AO">Authorizing Official (AO)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {authPackages.map((pkg) => (
+              <div key={pkg.id} className="enterprise-card p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-semibold text-[var(--text-primary)]">{pkg.component}</h3>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded border ${
+                        pkg.status === 'approved' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                        pkg.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                        pkg.status === 'in_review' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                        'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                      }`}>
+                        {pkg.status.replace('_', ' ').toUpperCase()}
+                      </span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getRiskBadgeColor(pkg.riskLevel)}`}>
+                        {pkg.riskLevel.toUpperCase()} RISK
                       </span>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Submitted By</p>
-                      <p className="text-sm font-medium text-foreground">{selectedApp.submittedBy}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Submitted Date</p>
-                      <p className="text-sm font-medium text-foreground">{formatDate(selectedApp.submittedDate)}</p>
+                    <div className="flex items-center space-x-4 text-sm text-[var(--text-muted)]">
+                      <span>System: {pkg.systemName}</span>
+                      <span>Submitted: {new Date(pkg.submittedDate).toLocaleDateString()}</span>
+                      <span>Target: {new Date(pkg.targetDate).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <p className="text-xs text-muted-foreground mb-1">Description</p>
-                    <p className="text-sm text-foreground">{selectedApp.description}</p>
+                  {canUserApprove(pkg) && (
+                    <button
+                      onClick={() => {
+                        setSelectedPackage(pkg);
+                        setShowApprovalModal(true);
+                      }}
+                      className="enterprise-btn enterprise-btn-primary"
+                    >
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Review & Approve
+                    </button>
+                  )}
+                </div>
+
+                {/* Approval Chain */}
+                <div className="bg-[var(--bg-elevated)] rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Approval Chain</h4>
+                  <div className="flex items-center justify-between">
+                    {pkg.approvals.map((approval, idx) => {
+                      const Icon = getApprovalIcon(approval.role);
+                      const isCurrentUserRole = approval.role === currentUserRole;
+                      return (
+                        <div key={approval.role} className="flex items-center">
+                          <div className="flex flex-col items-center">
+                            <div className={`relative w-14 h-14 rounded-full flex items-center justify-center ${
+                              approval.status === 'approved' ? 'bg-green-500/20 border-2 border-green-500' :
+                              approval.status === 'rejected' ? 'bg-red-500/20 border-2 border-red-500' :
+                              approval.status === 'pending' ? 'bg-[var(--bg-base)] border-2 border-[var(--border-default)]' :
+                              'bg-gray-500/20 border-2 border-gray-500'
+                            } ${isCurrentUserRole ? 'ring-2 ring-[var(--accent-cyan)] ring-offset-2 ring-offset-[var(--bg-elevated)]' : ''}`}>
+                              <Icon className={`h-6 w-6 ${
+                                approval.status === 'approved' ? 'text-green-400' :
+                                approval.status === 'rejected' ? 'text-red-400' :
+                                'text-[var(--text-muted)]'
+                              }`} />
+                              {approval.status === 'approved' && (
+                                <CheckCircle className="absolute -bottom-1 -right-1 h-5 w-5 text-green-400 bg-[var(--bg-elevated)] rounded-full" />
+                              )}
+                              {approval.status === 'rejected' && (
+                                <XCircle className="absolute -bottom-1 -right-1 h-5 w-5 text-red-400 bg-[var(--bg-elevated)] rounded-full" />
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--text-primary)] mt-2">{approval.role}</span>
+                            <span className="text-[10px] text-[var(--text-muted)] text-center max-w-[80px]">{approval.roleName}</span>
+                            {approval.approver && (
+                              <span className="text-[10px] text-[var(--accent-cyan)] mt-1">{approval.approver.split(' ')[0]}</span>
+                            )}
+                            {approval.timestamp && (
+                              <span className="text-[10px] text-[var(--text-muted)]">
+                                {new Date(approval.timestamp).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          {idx < pkg.approvals.length - 1 && (
+                            <div className={`w-12 h-0.5 mx-2 ${
+                              approval.status === 'approved' ? 'bg-green-500' :
+                              approval.status === 'rejected' ? 'bg-red-500' :
+                              'bg-[var(--border-default)]'
+                            }`} />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Security Posture */}
-                <div className="bg-muted rounded-lg p-4 border border-border block">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Security Posture</h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{selectedApp.securityScore}%</div>
-                      <p className="text-xs text-muted-foreground">Security Score</p>
+                {/* Comments from approvers */}
+                {pkg.approvals.some(a => a.comments) && (
+                  <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+                    <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Approval Comments
+                    </h4>
+                    <div className="space-y-2">
+                      {pkg.approvals.filter(a => a.comments).map(a => (
+                        <div key={a.role} className="text-sm bg-[var(--bg-elevated)] rounded p-2">
+                          <span className="font-medium text-[var(--accent-cyan)]">{a.role}:</span>
+                          <span className="text-[var(--text-secondary)] ml-2">{a.comments}</span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-foreground">
-                        {selectedApp.controlsImplemented}/{selectedApp.controlsTotal}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Authorizations */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Pipeline Evidence</h2>
+            <Link href="/hub" className="text-sm text-[var(--accent-cyan)] hover:text-[var(--accent-cyan-muted)] flex items-center">
+              View All <ChevronRight className="h-4 w-4 ml-1" />
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            {evidence.map((item) => (
+              <div key={item.id} className="enterprise-card p-6 hover:border-[var(--accent-cyan)]/30 transition-all cursor-pointer">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start space-x-4">
+                    <div className={`p-2 rounded-lg ${
+                      item.status === 'authorized' ? 'bg-green-500/20' :
+                      item.status === 'pending' ? 'bg-yellow-500/20' :
+                      'bg-red-500/20'
+                    }`}>
+                      {getStatusIcon(item.status)}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-3 mb-1">
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)]">{item.component}</h3>
+                        <span className={`status-badge ${
+                          item.status === 'authorized' ? 'healthy' :
+                          item.status === 'pending' ? 'warning' :
+                          'error'
+                        }`}>
+                          {item.status.toUpperCase()}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">Controls Implemented</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-500">{selectedApp.poamItems}</div>
-                      <p className="text-xs text-muted-foreground">Open POA&M Items</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vulnerabilities */}
-                <div className="bg-muted rounded-lg p-4 border border-border block">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Vulnerability Summary</h4>
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded">
-                      <div className="text-xl font-bold text-red-600">{selectedApp.vulnerabilities.critical}</div>
-                      <p className="text-xs text-red-600">Critical</p>
-                    </div>
-                    <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded">
-                      <div className="text-xl font-bold text-orange-600">{selectedApp.vulnerabilities.high}</div>
-                      <p className="text-xs text-orange-600">High</p>
-                    </div>
-                    <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded">
-                      <div className="text-xl font-bold text-yellow-600">{selectedApp.vulnerabilities.medium}</div>
-                      <p className="text-xs text-yellow-600">Medium</p>
-                    </div>
-                    <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
-                      <div className="text-xl font-bold text-blue-600">{selectedApp.vulnerabilities.low}</div>
-                      <p className="text-xs text-blue-600">Low</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Required Documents */}
-                <div className="bg-muted rounded-lg p-4 border border-border block">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Required Documentation</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-3">
-                      {selectedApp.documents.ssp ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      )}
-                      <span className="text-sm text-foreground">System Security Plan (SSP)</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {selectedApp.documents.poam ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      )}
-                      <span className="text-sm text-foreground">Plan of Action & Milestones</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {selectedApp.documents.sar ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      )}
-                      <span className="text-sm text-foreground">Security Assessment Report</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {selectedApp.documents.contingencyPlan ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      )}
-                      <span className="text-sm text-foreground">Contingency Plan</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Authorization Decision */}
-                <div className="border-t border-border pt-6 block">
-                  <h4 className="text-sm font-medium text-foreground mb-4">Authorization Decision</h4>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Decision *</label>
-                      <div className="grid grid-cols-3 gap-3">
-                        <button
-                          onClick={() => setReviewDecision('approved')}
-                          className={`p-3 rounded-lg border-2 ${
-                            reviewDecision === 'approved'
-                              ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                              : 'border-border hover:border-green-300'
-                          }`}
-                        >
-                          <CheckCircle className={`h-6 w-6 mx-auto mb-1 ${reviewDecision === 'approved' ? 'text-green-600' : 'text-muted-foreground'}`} />
-                          <p className="text-sm font-medium text-foreground">Approve</p>
-                          <p className="text-xs text-muted-foreground">Grant ATO</p>
-                        </button>
-                        <button
-                          onClick={() => setReviewDecision('conditional')}
-                          className={`p-3 rounded-lg border-2 ${
-                            reviewDecision === 'conditional'
-                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                              : 'border-border hover:border-orange-300'
-                          }`}
-                        >
-                          <AlertCircle className={`h-6 w-6 mx-auto mb-1 ${reviewDecision === 'conditional' ? 'text-orange-600' : 'text-muted-foreground'}`} />
-                          <p className="text-sm font-medium text-foreground">Conditional</p>
-                          <p className="text-xs text-muted-foreground">With conditions</p>
-                        </button>
-                        <button
-                          onClick={() => setReviewDecision('rejected')}
-                          className={`p-3 rounded-lg border-2 ${
-                            reviewDecision === 'rejected'
-                              ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                              : 'border-border hover:border-red-300'
-                          }`}
-                        >
-                          <XCircle className={`h-6 w-6 mx-auto mb-1 ${reviewDecision === 'rejected' ? 'text-red-600' : 'text-muted-foreground'}`} />
-                          <p className="text-sm font-medium text-foreground">Reject</p>
-                          <p className="text-xs text-muted-foreground">Deny ATO</p>
-                        </button>
+                      <div className="flex items-center space-x-4 text-sm text-[var(--text-muted)]">
+                        <span className="flex items-center space-x-1">
+                          <GitBranch className="h-4 w-4" />
+                          <span>{item.project}</span>
+                        </span>
+                        <span>Pipeline #{item.pipeline_id}</span>
+                        <span>Commit {item.commit}</span>
+                        <span>{item.timestamp}</span>
                       </div>
                     </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{item.compliance_score}%</div>
+                    <div className="text-xs text-[var(--text-muted)]">Compliance Score</div>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Review Notes {reviewDecision === 'conditional' && '*'}
-                      </label>
-                      <textarea
-                        value={reviewNotes}
-                        onChange={(e) => setReviewNotes(e.target.value)}
-                        rows={4}
-                        placeholder="Enter authorization decision notes, conditions, or reasons..."
-                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
+                {/* Pipeline Stages */}
+                <div className="grid grid-cols-5 gap-3 mb-4">
+                  {item.stages.map((stage, idx) => (
+                    <div key={idx} className="bg-[var(--bg-elevated)] rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">{stage.name}</span>
+                        {getStatusIcon(stage.status)}
+                      </div>
+                      <div className="space-y-1">
+                        {stage.jobs.map((job, jIdx) => (
+                          <div key={jIdx} className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-muted)] truncate">{job.name}</span>
+                            <span className={`font-mono ${getStatusColor(job.status)}`}>
+                              {job.findings !== undefined ? `${job.findings}` : '✓'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Authorizing Official Signature *
-                      </label>
-                      <input
-                        type="text"
-                        value={aoSignature}
-                        onChange={(e) => setAOSignature(e.target.value)}
-                        placeholder="Enter your full name to sign"
-                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        By signing, you certify that you have reviewed all documentation and authorize this decision.
-                      </p>
+                {/* Artifacts */}
+                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-subtle)]">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-[var(--text-secondary)] font-medium">Evidence Artifacts:</span>
+                    <div className="flex items-center space-x-2">
+                      {item.artifacts.sbom && (
+                        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded border border-blue-500/30">SBOM</span>
+                      )}
+                      {item.artifacts.vulnerabilities && (
+                        <span className="px-2 py-1 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/30">Vulnerabilities</span>
+                      )}
+                      {item.artifacts.secrets && (
+                        <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded border border-purple-500/30">Secrets</span>
+                      )}
+                      {item.artifacts.compliance && (
+                        <span className="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded border border-green-500/30">Compliance</span>
+                      )}
+                      {item.artifacts.scorecard && (
+                        <button
+                          onClick={() => {
+                            const projectId = '65646370'; // flask-container-test
+                            const jobId = item.pipeline_id;
+                            loadScorecardResults(projectId, jobId, item.pipeline_id);
+                            setShowScorecardModal(true);
+                          }}
+                          className="px-2 py-1 bg-cyan-500/10 text-cyan-400 text-xs rounded border border-cyan-500/30 hover:bg-cyan-500/20 cursor-pointer"
+                        >
+                          Scorecard
+                        </button>
+                      )}
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setSelectedEvidence(item);
+                        setShowEmassModal(true);
+                      }}
+                      className="enterprise-btn enterprise-btn-secondary text-sm"
+                      title="Sync to eMASS"
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      eMASS
+                    </button>
+                    <a
+                      href={`https://gitlab.com/${item.project}/-/pipelines/${item.pipeline_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="enterprise-btn enterprise-btn-secondary text-sm"
+                    >
+                      View in GitLab
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </a>
                   </div>
                 </div>
               </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
+            ))}
+          </div>
+        </div>
+
+        {/* Authorization Requirements */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Authorization Requirements</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="enterprise-card p-6">
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center">
+                <Shield className="h-5 w-5 text-green-400 mr-2" />
+                Security Requirements
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">Container Scanning</span>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">Secret Detection</span>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">SAST Analysis</span>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">Dependency Scanning</span>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="enterprise-card p-6">
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center">
+                <FileText className="h-5 w-5 text-blue-400 mr-2" />
+                Compliance Requirements
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">SBOM Generation</span>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">License Compliance</span>
+                  <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">Security Scorecard</span>
+                  <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-secondary)]">Attestation</span>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Integration Info */}
+        <div className="enterprise-card p-6">
+          <div className="flex items-start space-x-4">
+            <div className="p-3 bg-[var(--accent-cyan)]/10 rounded-lg">
+              <Zap className="h-6 w-6 text-[var(--accent-cyan)]" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
+                Automated Authorization Pipeline
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)] mb-3">
+                Components are continuously monitored through GitLab CI/CD pipelines. Each commit triggers automated security scans, 
+                SBOM generation, and compliance checks. Only components that pass all authorization requirements are approved for deployment.
+              </p>
+              <div className="flex items-center space-x-4 text-xs text-[var(--text-muted)]">
+                <span>• Real-time validation</span>
+                <span>• Evidence collection</span>
+                <span>• Automated attestation</span>
+                <span>• Continuous authorization</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scorecard Results Modal */}
+      {showScorecardModal && selectedEvidence && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-[var(--text-primary)]">Scorecard Results</h3>
                 <button
-                  onClick={() => setShowReviewModal(false)}
-                  className="px-4 py-2 border border-border text-foreground bg-background rounded-md hover:bg-muted"
+                  onClick={() => setShowScorecardModal(false)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+              
+              {scorecardResults[selectedEvidence.pipeline_id] ? (
+                <div className="space-y-4">
+                  <div className="metric-card">
+                    <div className="metric-label">Overall Score</div>
+                    <div className="metric-value text-[var(--accent-cyan)]">
+                      {scorecardResults[selectedEvidence.pipeline_id].score}%
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Check Details</h4>
+                    <div className="space-y-2">
+                      {scorecardResults[selectedEvidence.pipeline_id].checks?.map((check: any, idx: number) => (
+                        <div key={idx} className="bg-[var(--bg-elevated)] rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-[var(--text-primary)]">{check.name}</span>
+                            <span className={`text-sm font-mono ${
+                              check.score === 10 ? 'text-green-400' :
+                              check.score >= 7 ? 'text-yellow-400' :
+                              'text-red-400'
+                            }`}>
+                              {check.score}/10
+                            </span>
+                          </div>
+                          {check.reason && (
+                            <p className="text-xs text-[var(--text-muted)] mt-1">{check.reason}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Clock className="h-12 w-12 text-[var(--text-muted)] mx-auto mb-4 animate-spin" />
+                  <p className="text-[var(--text-secondary)]">Loading scorecard results...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* eMASS Sync Modal */}
+      {showEmassModal && selectedEvidence && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-[var(--text-primary)]">Sync to eMASS</h3>
+                <button
+                  onClick={() => setShowEmassModal(false)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+                    eMASS System ID
+                  </label>
+                  <input
+                    type="text"
+                    value={emassSystemId}
+                    onChange={(e) => setEmassSystemId(e.target.value)}
+                    placeholder="Enter eMASS system ID"
+                    className="enterprise-input"
+                  />
+                </div>
+
+                <div className="bg-[var(--bg-elevated)] rounded-lg p-4">
+                  <p className="text-sm text-[var(--text-secondary)] mb-2">
+                    This will create a POA&M item in eMASS for:
+                  </p>
+                  <ul className="text-xs text-[var(--text-muted)] space-y-1 list-disc list-inside">
+                    <li>Component: {selectedEvidence.component}</li>
+                    <li>Pipeline: #{selectedEvidence.pipeline_id}</li>
+                    <li>Compliance Score: {selectedEvidence.compliance_score}%</li>
+                  </ul>
+                </div>
+
+                <div className="flex items-center justify-end space-x-3">
+                  <button
+                    onClick={() => setShowEmassModal(false)}
+                    className="enterprise-btn enterprise-btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => syncToEmass(selectedEvidence)}
+                    disabled={!emassSystemId}
+                    className="enterprise-btn enterprise-btn-primary"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Sync to eMASS
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && selectedPackage && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Authorization Review</h3>
+                  <p className="text-sm text-gray-400">Review as {currentUserRole}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowApprovalModal(false);
+                    setApprovalComment('');
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Package Info */}
+              <div className="bg-gray-800 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase">Component</span>
+                    <p className="text-white font-medium">{selectedPackage.component}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase">System</span>
+                    <p className="text-white font-medium">{selectedPackage.systemName}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase">Risk Level</span>
+                    <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${getRiskBadgeColor(selectedPackage.riskLevel)}`}>
+                      {selectedPackage.riskLevel.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 uppercase">Target Date</span>
+                    <p className="text-white font-medium">{new Date(selectedPackage.targetDate).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Previous Approvals */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-white mb-3">Approval History</h4>
+                <div className="space-y-2">
+                  {selectedPackage.approvals.filter(a => a.status === 'approved' || a.status === 'rejected').map(a => (
+                    <div key={a.role} className="flex items-center justify-between bg-gray-800 rounded p-3">
+                      <div className="flex items-center space-x-3">
+                        {a.status === 'approved' ? (
+                          <CheckCircle className="h-5 w-5 text-green-400" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-400" />
+                        )}
+                        <div>
+                          <p className="text-white font-medium">{a.roleName}</p>
+                          <p className="text-xs text-gray-400">{a.approver}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-xs font-medium ${a.status === 'approved' ? 'text-green-400' : 'text-red-400'}`}>
+                          {a.status.toUpperCase()}
+                        </span>
+                        {a.timestamp && (
+                          <p className="text-xs text-gray-500">{new Date(a.timestamp).toLocaleString()}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Your Decision */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-white mb-3">Your Decision as {currentUserRole}</h4>
+                <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-300">
+                    {currentUserRole === 'SCA' && 'As the Security Control Assessor, verify that all security controls have been properly assessed and documented.'}
+                    {currentUserRole === 'ISSO' && 'As the ISSO, verify that the system meets security requirements and appropriate safeguards are in place.'}
+                    {currentUserRole === 'ISSM' && 'As the ISSM, verify organizational security policies are met and risk is acceptable.'}
+                    {currentUserRole === 'AO' && 'As the Authorizing Official, you have final authority to authorize this system for operation.'}
+                  </p>
+                </div>
+
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Comments (optional)
+                </label>
+                <textarea
+                  value={approvalComment}
+                  onChange={(e) => setApprovalComment(e.target.value)}
+                  placeholder="Add any comments or conditions for your decision..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-700">
+                <button
+                  onClick={() => {
+                    setShowApprovalModal(false);
+                    setApprovalComment('');
+                  }}
+                  className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleSubmitReview}
-                  disabled={!reviewDecision || !aoSignature}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => handleApproval(selectedPackage.id, 'reject')}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center"
                 >
-                  Submit Authorization Decision
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </button>
+                <button
+                  onClick={() => handleApproval(selectedPackage.id, 'approve')}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve
                 </button>
               </div>
             </div>
@@ -738,4 +1133,3 @@ export default function AuthorizationPage() {
     </div>
   );
 }
-

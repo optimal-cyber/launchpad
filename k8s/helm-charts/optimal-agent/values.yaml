@@ -1,0 +1,181 @@
+# =============================================================================
+# Optimal Agent - Helm Values
+# =============================================================================
+# Deploy this chart to tenant Kubernetes clusters to enable:
+# - Container vulnerability scanning
+# - Runtime security monitoring
+# - SBOM generation
+# - Compliance auditing
+# =============================================================================
+
+# Platform connection
+platform:
+  # API URL of the Optimal Platform
+  apiUrl: ""  # Required: e.g., https://api.optimal.io
+
+  # API key for authentication (create in platform UI or via API)
+  apiKey: ""  # Required: e.g., opt_xxxxx
+
+  # Or use existing secret
+  existingSecret: ""
+  secretKeyRef: "api-key"
+
+# Agent configuration
+agent:
+  # Agent name (defaults to cluster name)
+  name: ""
+
+  # Environment label
+  environment: "production"  # production, staging, development
+
+  # Capabilities to enable
+  capabilities:
+    vulnerabilityScanning: true
+    runtimeSecurity: true
+    sbomGeneration: true
+    complianceAuditing: true
+    secretDetection: true
+
+  # Scan configuration
+  scan:
+    # Interval between full scans (seconds)
+    interval: 3600  # 1 hour
+
+    # Scan on container start
+    scanOnStart: true
+
+    # Severity threshold for alerts
+    severityThreshold: "high"  # critical, high, medium, low
+
+  # Heartbeat interval (seconds)
+  heartbeatInterval: 60
+
+  # Log level
+  logLevel: "info"
+
+# Image configuration
+image:
+  repository: optimal/agent
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# DaemonSet configuration
+daemonset:
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations (to run on all nodes including masters)
+  tolerations:
+    - operator: Exists
+
+  # Affinity
+  affinity: {}
+
+  # Priority class
+  priorityClassName: ""
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Security context
+securityContext:
+  privileged: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - SYS_PTRACE  # Required for runtime monitoring
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Volume mounts for container runtime access
+volumes:
+  # Docker socket (for Docker runtime)
+  dockerSocket:
+    enabled: false
+    hostPath: /var/run/docker.sock
+
+  # Containerd socket (for containerd runtime)
+  containerdSocket:
+    enabled: true
+    hostPath: /run/containerd/containerd.sock
+
+  # CRI-O socket
+  crioSocket:
+    enabled: false
+    hostPath: /var/run/crio/crio.sock
+
+  # Host filesystem (for file scanning)
+  hostFilesystem:
+    enabled: true
+    hostPath: /
+    mountPath: /host
+    readOnly: true
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# RBAC
+rbac:
+  create: true
+  # Additional rules for cluster-wide access
+  clusterRole:
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "nodes", "namespaces", "services", "configmaps", "secrets"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["batch"]
+        resources: ["jobs", "cronjobs"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["networkpolicies", "ingresses"]
+        verbs: ["get", "list", "watch"]
+
+# Prometheus metrics
+metrics:
+  enabled: true
+  port: 9090
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Extra environment variables
+extraEnv: []
+
+# Extra volume mounts
+extraVolumeMounts: []
+
+# Extra volumes
+extraVolumes: []

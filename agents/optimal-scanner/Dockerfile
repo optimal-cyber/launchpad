@@ -39,3 +39,7 @@ ENTRYPOINT ["python", "scanner.py"]
 # Default command shows help
 CMD ["--help"]
 
+
+
+
+

@@ -7,14 +7,7 @@ import {
   ChevronRight, ExternalLink, RefreshCw, Zap,
   Server, Container, GitBranch, Lock
 } from 'lucide-react';
-
-interface VulnMetrics {
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
-  total: number;
-}
+import { usePlatformMetrics, clearMetricsCache } from '@/lib/usePlatformMetrics';
 
 interface RecentEvent {
   id: string;
@@ -28,15 +21,20 @@ interface RecentEvent {
 export default function CommandCenterPage() {
   const [isLive, setIsLive] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  
+  // Use shared platform metrics hook
+  const { metrics, loading, refresh } = usePlatformMetrics(isLive, 30000);
+  const vulnMetrics = metrics.vulnerabilities;
 
-  // Simulated real-time data
-  const vulnMetrics: VulnMetrics = {
-    critical: 7,
-    high: 23,
-    medium: 89,
-    low: 156,
-    total: 275
-  };
+  // Update timestamp when live mode is active
+  useEffect(() => {
+    if (isLive) {
+      const interval = setInterval(() => {
+        setLastUpdated(new Date());
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isLive]);
 
   const recentEvents: RecentEvent[] = [
     { id: '1', type: 'alert', severity: 'critical', message: 'New CVE-2024-3094 detected', target: 'api-gateway:v2.3.1', timestamp: '2s ago' },
@@ -47,15 +45,6 @@ export default function CommandCenterPage() {
     { id: '6', type: 'scan', severity: 'medium', message: 'SBOM updated', target: 'payment-service', timestamp: '3m ago' },
   ];
 
-  // Simulate live updates
-  useEffect(() => {
-    if (isLive) {
-      const interval = setInterval(() => {
-        setLastUpdated(new Date());
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [isLive]);
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -97,7 +86,14 @@ export default function CommandCenterPage() {
                 <Activity className="w-4 h-4" />
                 {isLive ? 'Live' : 'Paused'}
               </button>
-              <button className="enterprise-btn enterprise-btn-secondary">
+              <button 
+                className="enterprise-btn enterprise-btn-secondary"
+                onClick={() => {
+                  clearMetricsCache();
+                  refresh();
+                  setLastUpdated(new Date());
+                }}
+              >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
               </button>
@@ -424,4 +420,7 @@ export default function CommandCenterPage() {
     </div>
   );
 }
+
+
+
 

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: optimal-agent
+description: Optimal Platform Security Agent - DaemonSet deployment for tenant Kubernetes clusters
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - security
+  - cnapp
+  - vulnerability-scanning
+  - runtime-security
+  - container-security
+maintainers:
+  - name: Optimal Platform Team

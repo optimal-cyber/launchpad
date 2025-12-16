@@ -1,0 +1,143 @@
+# =============================================================================
+# Optimal Platform - Azure Terraform Variables Example
+# Copy this to terraform.tfvars and update with your values
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Required: Azure Configuration
+# -----------------------------------------------------------------------------
+
+# Your Azure subscription ID
+subscription_id = "00000000-0000-0000-0000-000000000000"  # CHANGE_ME
+
+# Azure region (choose based on compliance/latency requirements)
+# Options: eastus, eastus2, westus2, centralus, northeurope, westeurope
+location = "eastus"
+
+# Environment: development, staging, or production
+environment = "development"
+
+# Owner tag for resource identification
+owner = "platform-team"
+
+# -----------------------------------------------------------------------------
+# Kubernetes Configuration
+# -----------------------------------------------------------------------------
+
+# AKS Kubernetes version (check az aks get-versions for available versions)
+kubernetes_version = "1.28"
+
+# -----------------------------------------------------------------------------
+# System Node Pool (platform services like ingress, monitoring)
+# -----------------------------------------------------------------------------
+
+# VM size for system nodes
+# Development: Standard_D2s_v5 (2 vCPU, 8 GB RAM)
+# Production: Standard_D4s_v5 (4 vCPU, 16 GB RAM)
+system_node_vm_size = "Standard_D2s_v5"
+
+# Node scaling
+system_node_count     = 2
+system_node_min_count = 2
+system_node_max_count = 5
+
+# -----------------------------------------------------------------------------
+# Application Node Pool (your workloads)
+# -----------------------------------------------------------------------------
+
+# VM size for application nodes
+# Development: Standard_D2s_v5 (2 vCPU, 8 GB RAM)
+# Staging: Standard_D4s_v5 (4 vCPU, 16 GB RAM)
+# Production: Standard_D8s_v5 (8 vCPU, 32 GB RAM)
+app_node_vm_size = "Standard_D4s_v5"
+
+# Node scaling (uses Spot VMs in non-production)
+app_node_count     = 2
+app_node_min_count = 1
+app_node_max_count = 10
+
+# -----------------------------------------------------------------------------
+# Database Configuration
+# -----------------------------------------------------------------------------
+
+# Enable Azure Database for PostgreSQL Flexible Server
+enable_postgresql = true
+
+# PostgreSQL SKU
+# Development: B_Standard_B1ms (1 vCPU, 2 GB RAM)
+# Staging: GP_Standard_D2s_v3 (2 vCPU, 8 GB RAM)
+# Production: GP_Standard_D4s_v3 (4 vCPU, 16 GB RAM)
+postgresql_sku_name = "B_Standard_B1ms"
+
+# Storage in MB (32GB = 32768, 64GB = 65536, 128GB = 131072)
+postgresql_storage_mb = 32768
+
+# Database password (use a strong password!)
+db_password = "CHANGE_ME_STRONG_PASSWORD_123!"
+
+# -----------------------------------------------------------------------------
+# Redis Configuration
+# -----------------------------------------------------------------------------
+
+# Enable Azure Cache for Redis
+enable_redis = true
+
+# Redis capacity (0-6 for Basic/Standard, 1-4 for Premium)
+# Development: 1 (250MB for Standard)
+# Production: 2 (6GB for Premium)
+redis_capacity = 1
+
+# -----------------------------------------------------------------------------
+# Container Registry
+# -----------------------------------------------------------------------------
+
+# Geo-replication regions for ACR (production only, adds latency benefit)
+# This is only used when environment = "production"
+acr_geo_replications = ["westus2"]
+
+# -----------------------------------------------------------------------------
+# Azure AD Configuration
+# -----------------------------------------------------------------------------
+
+# Azure AD group object IDs for cluster admin access
+# Find with: az ad group show --group "Your Admin Group" --query id -o tsv
+admin_group_object_ids = []
+
+# -----------------------------------------------------------------------------
+# Domain Configuration (optional)
+# -----------------------------------------------------------------------------
+
+# Domain name for the platform
+# Leave empty to use Azure's generated DNS names
+domain_name = ""
+
+# =============================================================================
+# Environment-Specific Configurations
+# =============================================================================
+
+# --- Development Configuration ---
+# environment           = "development"
+# system_node_vm_size   = "Standard_D2s_v5"
+# system_node_count     = 2
+# app_node_vm_size      = "Standard_D2s_v5"
+# app_node_count        = 1
+# postgresql_sku_name   = "B_Standard_B1ms"
+# redis_capacity        = 0
+
+# --- Staging Configuration ---
+# environment           = "staging"
+# system_node_vm_size   = "Standard_D2s_v5"
+# system_node_count     = 2
+# app_node_vm_size      = "Standard_D4s_v5"
+# app_node_count        = 2
+# postgresql_sku_name   = "GP_Standard_D2s_v3"
+# redis_capacity        = 1
+
+# --- Production Configuration ---
+# environment           = "production"
+# system_node_vm_size   = "Standard_D4s_v5"
+# system_node_count     = 3
+# app_node_vm_size      = "Standard_D8s_v5"
+# app_node_count        = 3
+# postgresql_sku_name   = "GP_Standard_D4s_v3"
+# redis_capacity        = 2

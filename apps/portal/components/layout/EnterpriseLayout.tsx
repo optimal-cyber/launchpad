@@ -3,19 +3,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import {
-  Search, Bell, Settings, User, ChevronDown,
-  LayoutDashboard, Shield, AlertTriangle, Package,
-  FileText, GitBranch, Activity, Server, Zap, 
-  Eye, Terminal, Lock, HelpCircle, LogOut,
-  Radio, Box, Layers, Target, Compass
+  Search, Bell, Settings, ChevronDown,
+  Shield, AlertTriangle, Package,
+  FileText, Activity, Zap,
+  Lock, HelpCircle,
+  Radio, Layers, Target,
+  Rocket
 } from 'lucide-react';
 
 interface EnterpriseLayoutProps {
   children: React.ReactNode;
 }
 
+// Simplified main navigation - Launch Pad is the hub for all integrations
 const mainNavItems = [
+  { name: 'Launch Pad', href: '/launchpad', icon: Rocket },
   { name: 'Command Center', href: '/command-center', icon: Target },
   { name: 'Hub', href: '/hub', icon: Layers },
   { name: 'Vulnerabilities', href: '/vulnerabilities', icon: AlertTriangle, badge: 275 },
@@ -23,17 +27,10 @@ const mainNavItems = [
   { name: 'Agents', href: '/agents', icon: Radio, badge: 6 },
 ];
 
-const secondaryNavItems = [
+const complianceNavItems = [
   { name: 'OSCAL SSP', href: '/oscal', icon: FileText },
   { name: 'POA&M', href: '/poam', icon: Shield },
   { name: 'Authorization', href: '/authorization', icon: Lock },
-  { name: 'Diagrams', href: '/diagrams', icon: Box },
-];
-
-const serviceNavItems = [
-  { name: 'GitLab', href: '/services/gitlab', icon: GitBranch, status: 'healthy' },
-  { name: 'Harbor', href: '/services/harbor', icon: Server, status: 'healthy' },
-  { name: 'Confluence', href: '/services/confluence', icon: FileText, status: 'warning' },
 ];
 
 export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
@@ -70,9 +67,15 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
       {/* Top Bar */}
       <header className="enterprise-topbar">
         <div className="flex items-center gap-6">
-          {/* Logo */}
-          <Link href="/command-center" className="enterprise-logo">
-            <div className="enterprise-logo-mark">O</div>
+          {/* Logo - links to Launch Pad */}
+          <Link href="/launchpad" className="enterprise-logo">
+            <Image
+              src="/optimal-logo.png"
+              alt="Optimal"
+              width={24}
+              height={24}
+              className="w-6 h-6"
+            />
             <span>OPTIMAL</span>
           </Link>
 
@@ -134,7 +137,7 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
+        {/* Simplified Sidebar */}
         <nav className="enterprise-sidebar">
           {/* Main Navigation */}
           <div className="enterprise-nav-section">
@@ -160,7 +163,7 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
           {/* Compliance */}
           <div className="enterprise-nav-section">
             <div className="enterprise-nav-label">Compliance</div>
-            {secondaryNavItems.map((item) => {
+            {complianceNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
@@ -170,25 +173,6 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
                 >
                   <Icon className="w-4 h-4" />
                   <span>{item.name}</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Integrations */}
-          <div className="enterprise-nav-section">
-            <div className="enterprise-nav-label">Integrations</div>
-            {serviceNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`enterprise-nav-item ${isActive(item.href) ? 'active' : ''}`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.name}</span>
-                  <span className={`status-dot ${item.status}`}></span>
                 </Link>
               );
             })}
@@ -204,15 +188,10 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
               <Settings className="w-4 h-4" />
               <span>Settings</span>
             </Link>
-            <a 
-              href="https://docs.gooptimal.io" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="enterprise-nav-item"
-            >
+            <Link href="/docs" className="enterprise-nav-item">
               <HelpCircle className="w-4 h-4" />
               <span>Documentation</span>
-            </a>
+            </Link>
           </div>
         </nav>
 
@@ -224,11 +203,11 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
 
       {/* Command Palette Modal */}
       {isCommandPaletteOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60"
           onClick={() => setIsCommandPaletteOpen(false)}
         >
-          <div 
+          <div
             className="command-palette animate-slideUp"
             onClick={(e) => e.stopPropagation()}
           >
@@ -248,24 +227,24 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
               <div className="p-2">
                 <div className="enterprise-nav-label px-3 py-2">Quick Actions</div>
                 <div className="command-palette-item">
-                  <Search className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="text-sm text-[var(--text-secondary)]">Search CVEs...</span>
-                  <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">/cve</kbd>
-                </div>
-                <div className="command-palette-item">
-                  <Shield className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="text-sm text-[var(--text-secondary)]">View Vulnerabilities</span>
-                  <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">G V</kbd>
-                </div>
-                <div className="command-palette-item">
-                  <Package className="w-4 h-4 text-[var(--text-muted)]" />
-                  <span className="text-sm text-[var(--text-secondary)]">View SBOM</span>
-                  <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">G S</kbd>
+                  <Rocket className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-sm text-[var(--text-secondary)]">Launch Pad</span>
+                  <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">G L</kbd>
                 </div>
                 <div className="command-palette-item">
                   <Target className="w-4 h-4 text-[var(--text-muted)]" />
                   <span className="text-sm text-[var(--text-secondary)]">Command Center</span>
                   <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">G C</kbd>
+                </div>
+                <div className="command-palette-item">
+                  <AlertTriangle className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-sm text-[var(--text-secondary)]">Vulnerabilities</span>
+                  <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">G V</kbd>
+                </div>
+                <div className="command-palette-item">
+                  <Package className="w-4 h-4 text-[var(--text-muted)]" />
+                  <span className="text-sm text-[var(--text-secondary)]">SBOM</span>
+                  <kbd className="ml-auto text-xs px-2 py-0.5 bg-[var(--bg-active)] rounded text-[var(--text-muted)]">G S</kbd>
                 </div>
               </div>
             </div>
@@ -275,4 +254,3 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
     </div>
   );
 }
-

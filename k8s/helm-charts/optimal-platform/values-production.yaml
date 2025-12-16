@@ -193,3 +193,7 @@ serviceAccount:
     # AWS: eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/optimal-platform
     # GCP: iam.gke.io/gcp-service-account: optimal-platform@PROJECT.iam.gserviceaccount.com
 
+
+
+
+

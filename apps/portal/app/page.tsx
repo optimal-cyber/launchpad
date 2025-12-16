@@ -2,17 +2,31 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Shield, Zap, CheckCircle, ArrowRight, Chrome, Building2 } from 'lucide-react';
+import { Play, Shield, Zap, CheckCircle, ArrowRight, Chrome, Building2, Loader2 } from 'lucide-react';
+import { initiateSSO, initiateKeycloakLogin, type SSOProvider } from '@/lib/keycloak-sso';
 
 export default function LandingPage() {
   const router = useRouter();
   const [showSignUp, setShowSignUp] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<string | null>(null);
 
-  const handleSSOLogin = (provider: string) => {
-    // In production, this would redirect to the actual SSO provider
-    console.log(`Logging in with ${provider}`);
-    // Auto-login: Immediately redirect to launchpad (simulating successful SSO)
-    router.push('/launchpad');
+  const handleSSOLogin = async (provider: string) => {
+    setSsoLoading(provider);
+    try {
+      if (provider === 'enterprise') {
+        // Use Keycloak login page
+        await initiateKeycloakLogin();
+      } else if (provider === 'google' || provider === 'microsoft') {
+        // Use specific IdP via Keycloak
+        await initiateSSO(provider as SSOProvider);
+      } else {
+        // Fallback for other providers
+        await initiateKeycloakLogin();
+      }
+    } catch (error) {
+      console.error('SSO login error:', error);
+      setSsoLoading(null);
+    }
   };
 
   const handleTryDemo = () => {
@@ -218,25 +232,28 @@ export default function LandingPage() {
             <div className="space-y-4">
               <button
                 onClick={() => handleSSOLogin('google')}
-                className="w-full bg-white hover:bg-gray-100 text-gray-900 font-medium px-6 py-4 rounded-lg transition-colors flex items-center justify-center space-x-3"
+                disabled={ssoLoading !== null}
+                className="w-full bg-white hover:bg-gray-100 text-gray-900 font-medium px-6 py-4 rounded-lg transition-colors flex items-center justify-center space-x-3 disabled:opacity-70"
               >
-                <Chrome className="h-5 w-5" />
+                {ssoLoading === 'google' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Chrome className="h-5 w-5" />}
                 <span>Continue with Google</span>
               </button>
 
               <button
-                onClick={() => handleSSOLogin('azure')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-4 rounded-lg transition-colors flex items-center justify-center space-x-3"
+                onClick={() => handleSSOLogin('microsoft')}
+                disabled={ssoLoading !== null}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-4 rounded-lg transition-colors flex items-center justify-center space-x-3 disabled:opacity-70"
               >
-                <Building2 className="h-5 w-5" />
+                {ssoLoading === 'microsoft' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
                 <span>Continue with Microsoft</span>
               </button>
 
               <button
                 onClick={() => handleSSOLogin('enterprise')}
-                className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-medium px-6 py-4 rounded-lg transition-colors flex items-center justify-center space-x-3"
+                disabled={ssoLoading !== null}
+                className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-medium px-6 py-4 rounded-lg transition-colors flex items-center justify-center space-x-3 disabled:opacity-70"
               >
-                <Shield className="h-5 w-5" />
+                {ssoLoading === 'enterprise' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
                 <span>Enterprise SSO</span>
               </button>
             </div>

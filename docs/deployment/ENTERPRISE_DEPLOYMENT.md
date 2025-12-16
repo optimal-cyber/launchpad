@@ -2,7 +2,9 @@
 
 ## Overview
 
-This guide covers deploying Optimal Platform to **AWS (EKS)** or **Google Cloud (GKE)** for enterprise production environments. The deployment is designed to be developer-friendly while maintaining enterprise-grade security and scalability.
+This guide covers deploying Optimal Platform to **Google Cloud (GKE)**, **AWS (EKS)**, or **Microsoft Azure (AKS)** for enterprise production environments. The deployment is designed to be developer-friendly while maintaining enterprise-grade security and scalability.
+
+> **📖 For comprehensive operationalization procedures, see [OPERATIONALIZATION_GUIDE.md](./OPERATIONALIZATION_GUIDE.md)**
 
 ## Architecture
 
@@ -83,7 +85,7 @@ make CLOUD=aws ENV=development infra-apply
 make deploy-dev-aws
 ```
 
-### Deploy to GCP
+### Deploy to GCP (Primary)
 
 ```bash
 # 1. Setup (one-time)
@@ -101,6 +103,26 @@ make CLOUD=gcp ENV=development infra-apply
 
 # 4. Deploy application
 make deploy-dev-gcp
+```
+
+### Deploy to Azure
+
+```bash
+# 1. Setup (one-time)
+make setup
+
+# 2. Configure Azure
+az login
+az account set --subscription YOUR_SUBSCRIPTION_ID
+# Edit infra/terraform/azure/terraform.tfvars
+
+# 3. Deploy infrastructure
+make CLOUD=azure ENV=development infra-init
+make CLOUD=azure ENV=development infra-plan
+make CLOUD=azure ENV=development infra-apply
+
+# 4. Deploy application
+make deploy-dev-azure
 ```
 
 ## Detailed Deployment Steps
@@ -506,4 +528,8 @@ make doctor                # Check system requirements
 make version               # Show version info
 make clean                 # Clean up build artifacts
 ```
+
+
+
+
 

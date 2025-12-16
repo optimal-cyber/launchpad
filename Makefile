@@ -25,8 +25,8 @@ BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Environment (development, staging, production)
 ENV ?= development
 
-# Cloud provider (aws, gcp)
-CLOUD ?= aws
+# Cloud provider (aws, gcp, azure)
+CLOUD ?= gcp
 
 # AWS Configuration
 AWS_REGION ?= us-east-1
@@ -35,6 +35,11 @@ AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output t
 # GCP Configuration
 GCP_PROJECT ?= $(shell gcloud config get-value project 2>/dev/null)
 GCP_REGION ?= us-central1
+
+# Azure Configuration
+AZURE_SUBSCRIPTION ?= $(shell az account show --query id -o tsv 2>/dev/null)
+AZURE_LOCATION ?= eastus
+AZURE_RESOURCE_GROUP ?= rg-optimal-$(ENV)
 
 # Kubernetes Configuration
 KUBECONFIG ?= ~/.kube/config
@@ -47,6 +52,7 @@ HELM_CHART := ./k8s/helm-charts/optimal-platform
 # Docker Configuration
 DOCKER_REGISTRY_AWS := $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 DOCKER_REGISTRY_GCP := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/optimal
+DOCKER_REGISTRY_AZURE := acroptimal$(ENV).azurecr.io
 
 # Colors for output
 CYAN := \033[0;36m
@@ -81,7 +87,11 @@ help: ## Show this help message
 .PHONY: dev
 dev: ## Start local development environment with Docker Compose
 	@echo "$(GREEN)Starting local development environment...$(NC)"
-	docker compose -f docker-compose.dev.yml up -d --build
+	@if [ ! -f .env ]; then \
+		echo "$(YELLOW)No .env file found. Copying from env.development...$(NC)"; \
+		cp env.development .env; \
+	fi
+	docker compose up -d --build
 	@echo ""
 	@echo "$(GREEN)✅ Development environment started!$(NC)"
 	@echo ""
@@ -91,23 +101,46 @@ dev: ## Start local development environment with Docker Compose
 	@echo "  • API Docs:    http://localhost:8000/docs"
 	@echo "  • Grafana:     http://localhost:3001"
 	@echo ""
+	@echo "$(YELLOW)Waiting for services to be ready...$(NC)"
+	@sleep 5
+	@$(MAKE) health
 
 .PHONY: dev-stop
 dev-stop: ## Stop local development environment
 	@echo "$(YELLOW)Stopping development environment...$(NC)"
-	docker compose -f docker-compose.dev.yml down
+	docker compose down
 	@echo "$(GREEN)✅ Development environment stopped$(NC)"
 
 .PHONY: dev-logs
 dev-logs: ## View development environment logs
-	docker compose -f docker-compose.dev.yml logs -f
+	docker compose logs -f
 
 .PHONY: dev-reset
 dev-reset: ## Reset development environment (removes all data)
 	@echo "$(RED)WARNING: This will remove all local data!$(NC)"
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ]
-	docker compose -f docker-compose.dev.yml down -v --remove-orphans
+	docker compose down -v --remove-orphans
 	@echo "$(GREEN)✅ Development environment reset$(NC)"
+
+.PHONY: health
+health: ## Check health of all services
+	@echo "$(CYAN)Checking service health...$(NC)"
+	@echo ""
+	@echo "$(CYAN)Portal (http://localhost:3000):$(NC)"
+	@curl -sf http://localhost:3000 > /dev/null && echo "  $(GREEN)✅ Healthy$(NC)" || echo "  $(RED)❌ Not responding$(NC)"
+	@echo ""
+	@echo "$(CYAN)API Gateway (http://localhost:8000):$(NC)"
+	@curl -sf http://localhost:8000/health > /dev/null && echo "  $(GREEN)✅ Healthy$(NC)" || echo "  $(RED)❌ Not responding$(NC)"
+	@echo ""
+	@echo "$(CYAN)API v1 (http://localhost:8000/api/v1/health):$(NC)"
+	@curl -sf http://localhost:8000/api/v1/health | grep -q "healthy" && echo "  $(GREEN)✅ Healthy$(NC)" || echo "  $(RED)❌ Not responding$(NC)"
+	@echo ""
+	@echo "$(CYAN)OpenAPI Docs (http://localhost:8000/docs):$(NC)"
+	@curl -sf http://localhost:8000/docs > /dev/null && echo "  $(GREEN)✅ Available$(NC)" || echo "  $(RED)❌ Not responding$(NC)"
+	@echo ""
+	@echo "$(CYAN)Docker Containers:$(NC)"
+	@docker compose ps
+	@echo ""
 
 ##@ Building
 
@@ -129,6 +162,8 @@ build-api: ## Build API gateway image only
 push: ## Push images to container registry
 ifeq ($(CLOUD),aws)
 	@$(MAKE) push-aws
+else ifeq ($(CLOUD),azure)
+	@$(MAKE) push-azure
 else
 	@$(MAKE) push-gcp
 endif
@@ -154,6 +189,17 @@ push-gcp: ## Push images to GCP Artifact Registry
 		docker push $(DOCKER_REGISTRY_GCP)-$$service:$(VERSION); \
 	done
 	@echo "$(GREEN)✅ All images pushed to Artifact Registry$(NC)"
+
+.PHONY: push-azure
+push-azure: ## Push images to Azure Container Registry
+	@echo "$(GREEN)Pushing images to Azure Container Registry...$(NC)"
+	az acr login --name acroptimal$(ENV)
+	@for service in portal api-gateway sbom-service vuln-service gitlab-listener worker; do \
+		echo "Pushing $$service..."; \
+		docker tag $(PROJECT_NAME)/$$service:$(VERSION) $(DOCKER_REGISTRY_AZURE)/optimal-platform/$$service:$(VERSION); \
+		docker push $(DOCKER_REGISTRY_AZURE)/optimal-platform/$$service:$(VERSION); \
+	done
+	@echo "$(GREEN)✅ All images pushed to ACR$(NC)"
 
 ##@ Infrastructure
 
@@ -192,6 +238,9 @@ kubeconfig: ## Configure kubectl for the cluster
 ifeq ($(CLOUD),aws)
 	@echo "$(GREEN)Configuring kubectl for AWS EKS...$(NC)"
 	aws eks update-kubeconfig --region $(AWS_REGION) --name optimal-$(ENV)
+else ifeq ($(CLOUD),azure)
+	@echo "$(GREEN)Configuring kubectl for Azure AKS...$(NC)"
+	az aks get-credentials --resource-group $(AZURE_RESOURCE_GROUP) --name aks-optimal-$(ENV) --overwrite-existing
 else
 	@echo "$(GREEN)Configuring kubectl for GCP GKE...$(NC)"
 	gcloud container clusters get-credentials optimal-$(ENV) --region $(GCP_REGION) --project $(GCP_PROJECT)
@@ -283,6 +332,20 @@ deploy-prod-gcp: ## Deploy production to GCP (requires confirmation)
 	@echo "$(RED)WARNING: Deploying to PRODUCTION on GCP!$(NC)"
 	@read -p "Type 'deploy production' to confirm: " confirm && [ "$$confirm" = "deploy production" ]
 	ENV=production CLOUD=gcp $(MAKE) deploy
+
+.PHONY: deploy-dev-azure
+deploy-dev-azure: ## Deploy development to Azure
+	ENV=development CLOUD=azure $(MAKE) deploy
+
+.PHONY: deploy-staging-azure
+deploy-staging-azure: ## Deploy staging to Azure
+	ENV=staging CLOUD=azure $(MAKE) deploy
+
+.PHONY: deploy-prod-azure
+deploy-prod-azure: ## Deploy production to Azure (requires confirmation)
+	@echo "$(RED)WARNING: Deploying to PRODUCTION on Azure!$(NC)"
+	@read -p "Type 'deploy production' to confirm: " confirm && [ "$$confirm" = "deploy production" ]
+	ENV=production CLOUD=azure $(MAKE) deploy
 
 ##@ Monitoring & Debugging
 
@@ -384,6 +447,9 @@ doctor: ## Check system requirements
 	@echo "$(CYAN)GCP tools:$(NC)"
 	@command -v gcloud >/dev/null 2>&1 && echo "  ✅ gcloud CLI" || echo "  ❌ gcloud CLI (for GCP deployments)"
 	@echo ""
+	@echo "$(CYAN)Azure tools:$(NC)"
+	@command -v az >/dev/null 2>&1 && echo "  ✅ Azure CLI" || echo "  ❌ Azure CLI (for Azure deployments)"
+	@echo ""
 
 .PHONY: setup
 setup: ## Initial setup for development
@@ -392,6 +458,7 @@ setup: ## Initial setup for development
 	cp -n .env.example .env 2>/dev/null || true
 	cp -n infra/terraform/aws/terraform.tfvars.example infra/terraform/aws/terraform.tfvars 2>/dev/null || true
 	cp -n infra/terraform/gcp/terraform.tfvars.example infra/terraform/gcp/terraform.tfvars 2>/dev/null || true
+	cp -n infra/terraform/azure/terraform.tfvars.example infra/terraform/azure/terraform.tfvars 2>/dev/null || true
 	@echo "Installing dependencies..."
 	cd apps/portal && npm install
 	@echo "$(GREEN)✅ Setup complete!$(NC)"
@@ -401,4 +468,7 @@ setup: ## Initial setup for development
 	@echo "  2. Edit infra/terraform/aws/terraform.tfvars or infra/terraform/gcp/terraform.tfvars"
 	@echo "  3. Run 'make dev' to start local development"
 	@echo "  4. Run 'make deploy-dev-aws' or 'make deploy-dev-gcp' for cloud deployment"
+
+
+
 

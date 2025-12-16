@@ -4,7 +4,8 @@ import { useState } from 'react';
 import {
   Search, Filter, Download, RefreshCw, ChevronDown,
   AlertTriangle, CheckCircle, Clock, ExternalLink,
-  ArrowUpRight, ArrowDownRight, Eye, MoreHorizontal
+  ArrowUpRight, ArrowDownRight, Eye, MoreHorizontal,
+  FileText, Loader2, CheckCircle2, XCircle
 } from 'lucide-react';
 
 interface Vulnerability {
@@ -146,11 +147,25 @@ const mockVulnerabilities: Vulnerability[] = [
   }
 ];
 
+interface AgentRun {
+  run_id: string;
+  task_type: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  result?: any;
+  error?: string;
+  progress_percent: number;
+}
+
 export default function VulnerabilitiesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
   const [selectedEnv, setSelectedEnv] = useState<string[]>([]);
+  
+  // Agent modal state
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [agentRun, setAgentRun] = useState<AgentRun | null>(null);
+  const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
 
   const filteredVulns = mockVulnerabilities.filter(vuln => {
     if (searchQuery && !vuln.cve.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -188,6 +203,87 @@ export default function VulnerabilitiesPage() {
     high: mockVulnerabilities.filter(v => v.severity === 'high').length,
     medium: mockVulnerabilities.filter(v => v.severity === 'medium').length,
     low: mockVulnerabilities.filter(v => v.severity === 'low').length,
+  };
+
+  // Generate POA&M using AI Agent
+  const handleGeneratePOAM = async (vuln: Vulnerability) => {
+    setSelectedVuln(vuln);
+    setShowAgentModal(true);
+
+    try {
+      // Call agent API to generate POA&M
+      const response = await fetch('/api/v1/agents/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task_type: 'generate_poam',
+          parameters: {
+            vulnerability_id: vuln.id,
+            cve_id: vuln.cve,
+            severity: vuln.severity,
+            package: vuln.package,
+            version: vuln.version,
+            asset: vuln.asset,
+          },
+          environment_id: vuln.environment,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create agent run');
+      }
+
+      const runData: AgentRun = await response.json();
+      setAgentRun(runData);
+
+      // Poll for status
+      pollAgentStatus(runData.run_id);
+    } catch (error) {
+      console.error('Error generating POA&M:', error);
+      setAgentRun({
+        run_id: 'error',
+        task_type: 'generate_poam',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        progress_percent: 0,
+      });
+    }
+  };
+
+  // Poll agent run status
+  const pollAgentStatus = async (runId: string) => {
+    const maxAttempts = 20;
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/v1/agents/runs/${runId}`);
+        if (!response.ok) throw new Error('Failed to fetch run status');
+
+        const runData: AgentRun = await response.json();
+        setAgentRun(runData);
+
+        if (runData.status === 'completed' || runData.status === 'failed') {
+          return; // Done
+        }
+
+        // Continue polling
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 1000); // Poll every second
+        }
+      } catch (error) {
+        console.error('Error polling agent status:', error);
+      }
+    };
+
+    poll();
+  };
+
+  const closeAgentModal = () => {
+    setShowAgentModal(false);
+    setAgentRun(null);
+    setSelectedVuln(null);
   };
 
   return (
@@ -383,9 +479,18 @@ export default function VulnerabilitiesPage() {
                     </td>
                     <td className="cell-mono text-xs">{vuln.firstSeen}</td>
                     <td>
-                      <button className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] opacity-0 group-hover:opacity-100">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
+                        <button 
+                          className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-cyan)] transition-colors"
+                          onClick={() => handleGeneratePOAM(vuln)}
+                          title="Generate POA&M with AI"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -401,6 +506,156 @@ export default function VulnerabilitiesPage() {
           )}
         </div>
       </div>
+
+      {/* Agent Modal */}
+      {showAgentModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="enterprise-card w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                    {agentRun?.status === 'completed' ? (
+                      <CheckCircle2 className="w-6 h-6 text-green-400" />
+                    ) : agentRun?.status === 'failed' ? (
+                      <XCircle className="w-6 h-6 text-red-400" />
+                    ) : (
+                      <Loader2 className="w-6 h-6 text-[var(--accent-cyan)] animate-spin" />
+                    )}
+                    AI Agent: Generate POA&M
+                  </h2>
+                  {selectedVuln && (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">
+                      Processing {selectedVuln.cve} ({selectedVuln.package})
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={closeAgentModal}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Status */}
+              {agentRun && (
+                <div className="space-y-4">
+                  {/* Progress Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-[var(--text-secondary)]">
+                        Status: <span className="capitalize text-[var(--text-primary)]">{agentRun.status}</span>
+                      </span>
+                      <span className="text-[var(--text-muted)]">{agentRun.progress_percent}%</span>
+                    </div>
+                    <div className="h-2 bg-[var(--bg-surface)] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[var(--accent-cyan)] transition-all duration-300"
+                        style={{ width: `${agentRun.progress_percent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Result */}
+                  {agentRun.status === 'completed' && agentRun.result && (
+                    <div className="bg-[var(--bg-surface)] rounded-lg p-4 border border-[var(--border-subtle)]">
+                      <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
+                        POA&M Draft Generated
+                      </h3>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-[var(--text-muted)] uppercase">Weakness Name</label>
+                          <p className="text-[var(--text-primary)] mt-1">{agentRun.result.weakness_name}</p>
+                        </div>
+                        
+                        {agentRun.result.poam_id && (
+                          <div>
+                            <label className="text-xs text-[var(--text-muted)] uppercase">POA&M ID</label>
+                            <p className="text-[var(--accent-cyan)] font-mono mt-1">{agentRun.result.poam_id}</p>
+                          </div>
+                        )}
+                        
+                        {agentRun.result.scheduled_completion && (
+                          <div>
+                            <label className="text-xs text-[var(--text-muted)] uppercase">Scheduled Completion</label>
+                            <p className="text-[var(--text-primary)] mt-1">
+                              {new Date(agentRun.result.scheduled_completion).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {agentRun.result.items_generated && (
+                          <div>
+                            <label className="text-xs text-[var(--text-muted)] uppercase">Items Generated</label>
+                            <p className="text-[var(--text-primary)] mt-1">{agentRun.result.items_generated}</p>
+                          </div>
+                        )}
+
+                        {agentRun.result.recommendations && (
+                          <div>
+                            <label className="text-xs text-[var(--text-muted)] uppercase">Recommendations</label>
+                            <ul className="list-disc list-inside text-[var(--text-primary)] mt-1 space-y-1">
+                              {agentRun.result.recommendations.map((rec: string, idx: number) => (
+                                <li key={idx}>{rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-3 mt-6">
+                        <a
+                          href="/poam"
+                          className="enterprise-btn enterprise-btn-primary flex-1"
+                        >
+                          <FileText className="w-4 h-4" />
+                          View in POA&M Dashboard
+                        </a>
+                        <button
+                          onClick={closeAgentModal}
+                          className="enterprise-btn enterprise-btn-secondary"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {agentRun.status === 'failed' && (
+                    <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-4">
+                      <h3 className="text-red-400 font-semibold mb-2">Error</h3>
+                      <p className="text-[var(--text-secondary)]">{agentRun.error || 'Unknown error occurred'}</p>
+                      <button
+                        onClick={closeAgentModal}
+                        className="enterprise-btn enterprise-btn-secondary mt-4"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Pending/Running */}
+                  {(agentRun.status === 'pending' || agentRun.status === 'running') && (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-12 h-12 text-[var(--accent-cyan)] animate-spin mx-auto mb-4" />
+                      <p className="text-[var(--text-secondary)]">
+                        AI Agent is analyzing the vulnerability and generating a POA&M draft...
+                      </p>
+                      <p className="text-sm text-[var(--text-muted)] mt-2">
+                        This typically takes 5-10 seconds
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

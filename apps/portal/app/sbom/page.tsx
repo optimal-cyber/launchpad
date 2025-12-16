@@ -62,9 +62,43 @@ export default function SBOMPage() {
 
   const loadSBOMComponents = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-      console.log('Loading SBOM components from:', `${apiBase}/api/sboms`);
-      const response = await fetch(`${apiBase}/api/sboms`);
+      setLoading(true);
+      
+      // First try to fetch from GitLab artifacts for flask-container-test
+      const projectId = '65646370'; // flask-container-test
+      const pipelineId = '2202794428'; // Latest pipeline
+      
+      // Try to get SBOM from GitLab artifacts
+      try {
+        const gitlabResponse = await fetch(`/api/gitlab/sbom?project_id=${projectId}&pipeline_id=${pipelineId}`);
+        if (gitlabResponse.ok) {
+          const gitlabData = await gitlabResponse.json();
+          if (gitlabData.components && gitlabData.components.length > 0) {
+            // Transform CycloneDX components to our format
+            const transformedComponents = gitlabData.components.map((comp: any, idx: number) => ({
+              id: comp.purl || comp.bomRef || `comp-${idx}`,
+              name: comp.name,
+              version: comp.version || 'unknown',
+              type: comp.type?.toLowerCase() || 'library',
+              purl: comp.purl || '',
+              license: comp.licenses?.[0]?.license?.id || comp.license || 'Unknown',
+              description: comp.description || comp.name,
+              vulnerabilities: comp.vulnerabilities?.length || 0,
+              risk_level: comp.vulnerabilities?.length > 0 ? 'medium' : 'low',
+              last_updated: comp.updatedAt || new Date().toISOString(),
+            }));
+            setComponents(transformedComponents);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('GitLab SBOM fetch failed, trying backend API:', error);
+      }
+      
+      // Fallback to backend API
+      console.log('Loading SBOM components from:', '/api/sboms');
+      const response = await fetch('/api/sboms');
       console.log('Response status:', response.status);
       const data = await response.json();
       console.log('Response data:', data);

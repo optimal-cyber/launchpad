@@ -1,0 +1,344 @@
+/* Optimal Platform - Custom Keycloak Theme */
+/* Digital Fortress Aesthetic */
+
+:root {
+  --optimal-bg-dark: #0a0f1a;
+  --optimal-bg-surface: #111827;
+  --optimal-cyan: #06b6d4;
+  --optimal-cyan-glow: rgba(6, 182, 212, 0.4);
+  --optimal-blue: #3b82f6;
+  --optimal-text: #f8fafc;
+  --optimal-text-muted: #94a3b8;
+  --optimal-border: #1e293b;
+  --optimal-success: #10b981;
+}
+
+/* Full page background */
+body {
+  background: var(--optimal-bg-dark) !important;
+  min-height: 100vh;
+}
+
+.login-pf body {
+  background: var(--optimal-bg-dark) !important;
+}
+
+/* Network mesh background */
+#kc-header-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+    var(--optimal-bg-dark);
+  z-index: 1;
+}
+
+/* Network mesh overlay - using CSS */
+#kc-header-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(circle, rgba(6, 182, 212, 0.3) 1px, transparent 1px),
+    radial-gradient(circle, rgba(6, 182, 212, 0.15) 1px, transparent 1px);
+  background-size: 60px 60px, 30px 30px;
+  background-position: 0 0, 15px 15px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Connection lines effect */
+#kc-header-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(135deg, transparent 40%, rgba(6, 182, 212, 0.05) 50%, transparent 60%),
+    linear-gradient(225deg, transparent 40%, rgba(59, 130, 246, 0.05) 50%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Logo and branding area */
+#kc-logo-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+/* Hide default logo, we'll use custom */
+#kc-logo {
+  display: none;
+}
+
+/* Custom logo placeholder - shield icon */
+#kc-header-wrapper h1 {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--optimal-text);
+  margin: 0;
+  text-shadow: 0 0 40px var(--optimal-cyan-glow);
+  position: relative;
+  z-index: 2;
+}
+
+/* Custom branding - add via JavaScript or template */
+.optimal-logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.optimal-logo {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1.5rem;
+}
+
+.optimal-tagline {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 300;
+  color: var(--optimal-text-muted);
+  letter-spacing: 0.1em;
+  margin-top: 1rem;
+}
+
+/* Login card positioned on right */
+#kc-form-wrapper,
+.card-pf {
+  position: fixed !important;
+  right: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 90vw;
+  background: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  padding: 2.5rem !important;
+  z-index: 10;
+}
+
+#kc-content {
+  position: fixed;
+  right: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 90vw;
+  z-index: 10;
+}
+
+#kc-content-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  padding: 2.5rem;
+}
+
+/* Login form header */
+#kc-form-login h1,
+#kc-page-title {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Subtitle text */
+#kc-form-login .instruction,
+.login-pf-page .card-pf p {
+  font-size: 0.875rem;
+  color: #64748b;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+/* Form labels */
+.login-pf-page .login-pf-accounts label,
+#kc-form-login label {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+/* Input fields */
+#kc-form-login input[type="text"],
+#kc-form-login input[type="password"],
+#kc-form-login input[type="email"],
+.login-pf-page .form-control {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #1e293b;
+  transition: all 0.2s ease;
+}
+
+#kc-form-login input:focus,
+.login-pf-page .form-control:focus {
+  outline: none;
+  border-color: var(--optimal-cyan);
+  box-shadow: 0 0 0 3px var(--optimal-cyan-glow);
+}
+
+/* Submit button - Optimal cyan/teal gradient */
+#kc-login,
+.login-pf-page .btn-primary,
+#kc-form-login input[type="submit"] {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--optimal-cyan), var(--optimal-blue)) !important;
+  border: none !important;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1rem;
+}
+
+#kc-login:hover,
+.login-pf-page .btn-primary:hover {
+  background: linear-gradient(135deg, #0891b2, #2563eb) !important;
+  box-shadow: 0 4px 12px var(--optimal-cyan-glow);
+  transform: translateY(-1px);
+}
+
+/* Forgot password link */
+#kc-form-options a,
+.login-pf-page a {
+  color: var(--optimal-cyan);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+#kc-form-options a:hover,
+.login-pf-page a:hover {
+  color: var(--optimal-blue);
+  text-decoration: underline;
+}
+
+/* Remember me checkbox */
+#kc-form-options .checkbox label {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* Error messages */
+.alert-error,
+.kc-feedback-text {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+/* Social login buttons */
+#kc-social-providers ul {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0 0;
+}
+
+#kc-social-providers li {
+  margin-bottom: 0.5rem;
+}
+
+#kc-social-providers a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #1e293b;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+#kc-social-providers a:hover {
+  background: #f1f5f9;
+  border-color: var(--optimal-cyan);
+}
+
+/* Hide unnecessary elements */
+#kc-info-wrapper,
+.login-pf-page .login-pf-header,
+.pf-c-login__footer {
+  display: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  #kc-header-wrapper {
+    display: none;
+  }
+
+  #kc-content,
+  #kc-form-wrapper,
+  .card-pf {
+    position: relative !important;
+    right: auto;
+    top: auto;
+    transform: none;
+    margin: 2rem auto;
+    width: 90%;
+    max-width: 400px;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+}
+
+/* Password visibility toggle */
+.pf-c-button.pf-m-control {
+  background: transparent;
+  border: none;
+  color: #64748b;
+}
+
+/* Loading state */
+#kc-login[disabled] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

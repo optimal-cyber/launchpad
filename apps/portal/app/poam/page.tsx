@@ -2,25 +2,42 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { 
-  AlertTriangle, 
-  Search, 
-  Filter, 
-  Download, 
+import {
+  AlertTriangle,
+  Search,
+  Download,
   RefreshCw,
   Eye,
-  Edit,
-  Trash2,
   CheckCircle,
   XCircle,
   Clock,
   AlertCircle,
   Calendar,
-  User,
+  Shield,
   FileText,
-  TrendingUp,
-  Shield
+  GitBranch,
+  History,
+  ChevronDown,
+  Ban,
+  FileCheck,
+  Filter,
 } from 'lucide-react';
+
+// Types
+interface CVEItem {
+  id: string;
+  cve: string;
+  title: string;
+  scanType: 'container' | 'sast' | 'dast' | 'dependency' | 'secret';
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  cvssRaw: number;
+  cvssVersion: string;
+  cveType: string;
+  package: string;
+  version: string;
+  createdAt: string;
+  status: 'open' | 'in_progress' | 'remediated' | 'blacklisted';
+}
 
 interface POAMItem {
   id: string;
@@ -53,24 +70,162 @@ interface Comment {
   created_at: string;
 }
 
+interface ScanFile {
+  id: string;
+  name: string;
+  scanType: string;
+  cveCount: number;
+  uploadedAt: string;
+  status: 'processed' | 'processing' | 'failed';
+}
+
+// Mock data for CVEs
+const mockCVEs: CVEItem[] = [
+  {
+    id: '1',
+    cve: 'CVE-2023-43804',
+    title: 'urllib3 HTTP redirect handling vulnerability',
+    scanType: 'container',
+    severity: 'high',
+    cvssRaw: 8.1,
+    cvssVersion: '3.1',
+    cveType: 'Network',
+    package: 'urllib3',
+    version: '1.26.5',
+    createdAt: '2024-05-15',
+    status: 'open',
+  },
+  {
+    id: '2',
+    cve: 'CVE-2023-41105',
+    title: 'Python path traversal vulnerability',
+    scanType: 'container',
+    severity: 'high',
+    cvssRaw: 7.5,
+    cvssVersion: '3.1',
+    cveType: 'Local',
+    package: 'python',
+    version: '3.9.7',
+    createdAt: '2024-05-14',
+    status: 'open',
+  },
+  {
+    id: '3',
+    cve: 'CVE-2023-27043',
+    title: 'Python email parsing vulnerability',
+    scanType: 'container',
+    severity: 'medium',
+    cvssRaw: 5.3,
+    cvssVersion: '3.1',
+    cveType: 'Network',
+    package: 'python',
+    version: '3.9.7',
+    createdAt: '2024-05-13',
+    status: 'open',
+  },
+  {
+    id: '4',
+    cve: 'CVE-2024-21503',
+    title: 'Node.js HTTP/2 denial of service',
+    scanType: 'dependency',
+    severity: 'critical',
+    cvssRaw: 9.1,
+    cvssVersion: '3.1',
+    cveType: 'Network',
+    package: 'nodejs',
+    version: '18.14.0',
+    createdAt: '2024-05-12',
+    status: 'open',
+  },
+  {
+    id: '5',
+    cve: 'CVE-2023-44487',
+    title: 'HTTP/2 Rapid Reset Attack',
+    scanType: 'container',
+    severity: 'critical',
+    cvssRaw: 9.8,
+    cvssVersion: '3.1',
+    cveType: 'Network',
+    package: 'nginx',
+    version: '1.24.0',
+    createdAt: '2024-05-11',
+    status: 'in_progress',
+  },
+  {
+    id: '6',
+    cve: 'CVE-2023-38545',
+    title: 'curl SOCKS5 heap buffer overflow',
+    scanType: 'container',
+    severity: 'critical',
+    cvssRaw: 9.8,
+    cvssVersion: '3.1',
+    cveType: 'Network',
+    package: 'curl',
+    version: '7.88.1',
+    createdAt: '2024-05-10',
+    status: 'open',
+  },
+  {
+    id: '7',
+    cve: 'CVE-2023-36884',
+    title: 'Microsoft Office code execution',
+    scanType: 'sast',
+    severity: 'high',
+    cvssRaw: 8.8,
+    cvssVersion: '3.1',
+    cveType: 'Local',
+    package: 'ms-office-sdk',
+    version: '16.0.14326',
+    createdAt: '2024-05-09',
+    status: 'remediated',
+  },
+  {
+    id: '8',
+    cve: 'CVE-2023-32681',
+    title: 'Requests library proxy authentication leak',
+    scanType: 'dependency',
+    severity: 'medium',
+    cvssRaw: 6.1,
+    cvssVersion: '3.1',
+    cveType: 'Network',
+    package: 'requests',
+    version: '2.28.0',
+    createdAt: '2024-05-08',
+    status: 'open',
+  },
+];
+
+const mockScanFiles: ScanFile[] = [
+  { id: '1', name: 'container-scan-2024-05-15.json', scanType: 'Container Scan', cveCount: 45, uploadedAt: '2024-05-15', status: 'processed' },
+  { id: '2', name: 'dependency-check-report.json', scanType: 'Dependency Scan', cveCount: 28, uploadedAt: '2024-05-14', status: 'processed' },
+  { id: '3', name: 'sast-results-main.sarif', scanType: 'SAST', cveCount: 12, uploadedAt: '2024-05-13', status: 'processed' },
+  { id: '4', name: 'trivy-scan-latest.json', scanType: 'Container Scan', cveCount: 67, uploadedAt: '2024-05-12', status: 'processing' },
+];
+
+type TabId = 'project-cves' | 'scan-files' | 'project-files' | 'pipeline-history' | 'poam-items';
+
 function POAMPageContent() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState('items');
+  const [activeTab, setActiveTab] = useState<TabId>('project-cves');
+  const [cveItems, setCveItems] = useState<CVEItem[]>(mockCVEs);
   const [poamItems, setPOAMItems] = useState<POAMItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<POAMItem[]>([]);
+  const [scanFiles] = useState<ScanFile[]>(mockScanFiles);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [scanTypeFilter, setScanTypeFilter] = useState('all');
+  const [selectedCVEs, setSelectedCVEs] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<POAMItem | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPOAMData, setNewPOAMData] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState('optimal-platform');
+  const [selectedEnv, setSelectedEnv] = useState('production');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    loadPOAMData();
-    
-    // Check if we're creating from vulnerabilities
+    loadData();
+
     const createMode = searchParams?.get('create');
     if (createMode === 'true') {
       const storedData = localStorage.getItem('poam_creation_data');
@@ -83,21 +238,13 @@ function POAMPageContent() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [poamItems, searchTerm, statusFilter, severityFilter]);
-
-  const loadPOAMData = async () => {
+  const loadData = async () => {
     try {
-      // Load from localStorage or use mock data
       const storedItems = localStorage.getItem('poam_items');
-      let mockData: POAMItem[] = [];
-      
       if (storedItems) {
-        mockData = JSON.parse(storedItems);
+        setPOAMItems(JSON.parse(storedItems));
       } else {
-        // Default mock data
-        mockData = [
+        const defaultItems: POAMItem[] = [
           {
             id: '1',
             controlId: 'AC-2',
@@ -108,19 +255,8 @@ function POAMPageContent() {
             submittedDate: '2025-09-01',
             assignedTo: 'John Doe',
             milestones: [
-              {
-                id: 'm1',
-                description: 'Implement automated account review system',
-                scheduledDate: '2025-10-01',
-                status: 'completed',
-                completedDate: '2025-09-28'
-              },
-              {
-                id: 'm2',
-                description: 'Train security team on new procedures',
-                scheduledDate: '2025-10-15',
-                status: 'in_progress'
-              }
+              { id: 'm1', description: 'Implement automated account review system', scheduledDate: '2025-10-01', status: 'completed', completedDate: '2025-09-28' },
+              { id: 'm2', description: 'Train security team on new procedures', scheduledDate: '2025-10-15', status: 'in_progress' }
             ],
             comments: [],
             remediation: 'Implement automated account review process and update security policies',
@@ -142,87 +278,67 @@ function POAMPageContent() {
             resources: '1 FTE, SIEM Tool',
             estimatedCost: '$75,000'
           },
-          {
-            id: '3',
-            controlId: 'IA-5',
-            weakness: 'Authenticator Management - Weak password requirements',
-            severity: 'critical',
-            status: 'ongoing',
-            scheduledCompletionDate: '2025-10-30',
-            submittedDate: '2025-08-20',
-            assignedTo: 'Bob Johnson',
-            milestones: [
-              {
-                id: 'm3',
-                description: 'Update password policy',
-                scheduledDate: '2025-09-15',
-                status: 'completed',
-                completedDate: '2025-09-14'
-              },
-              {
-                id: 'm4',
-                description: 'Implement MFA for all users',
-                scheduledDate: '2025-10-30',
-                status: 'in_progress'
-              }
-            ],
-            comments: [],
-            remediation: 'Enforce strong password requirements and implement multi-factor authentication',
-            resources: '1 FTE, MFA Solution',
-            estimatedCost: '$30,000'
-          }
         ];
-        // Save default data
-        localStorage.setItem('poam_items', JSON.stringify(mockData));
+        localStorage.setItem('poam_items', JSON.stringify(defaultItems));
+        setPOAMItems(defaultItems);
       }
-      
-      setPOAMItems(mockData);
     } catch (error) {
-      console.error('Error loading POA&M data:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = poamItems;
-
-    if (searchTerm) {
-      filtered = filtered.filter(item => 
-        item.controlId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.weakness.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.assignedTo.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(item => item.status === statusFilter);
-    }
-
-    if (severityFilter !== 'all') {
-      filtered = filtered.filter(item => item.severity === severityFilter);
-    }
-
-    setFilteredItems(filtered);
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadData();
+    setTimeout(() => setIsRefreshing(false), 1500);
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity.toLowerCase()) {
-      case 'critical': return 'bg-red-600';
-      case 'high': return 'bg-orange-600';
-      case 'medium': return 'bg-yellow-600';
-      case 'low': return 'bg-blue-600';
-      default: return 'bg-gray-600';
+  // Calculate CVE metrics
+  const cveMetrics = {
+    total: cveItems.length,
+    needingAction: cveItems.filter(c => c.status === 'open').length,
+    critical: cveItems.filter(c => c.severity === 'critical').length,
+    high: cveItems.filter(c => c.severity === 'high').length,
+    medium: cveItems.filter(c => c.severity === 'medium').length,
+    low: cveItems.filter(c => c.severity === 'low').length,
+    blacklisted: cveItems.filter(c => c.status === 'blacklisted').length,
+  };
+
+  // Filter CVEs
+  const filteredCVEs = cveItems.filter((cve) => {
+    const matchesSearch = searchTerm === '' ||
+      cve.cve.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cve.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cve.package.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSeverity = severityFilter === 'all' || cve.severity === severityFilter;
+    const matchesScanType = scanTypeFilter === 'all' || cve.scanType === scanTypeFilter;
+    return matchesSearch && matchesSeverity && matchesScanType;
+  });
+
+  // Handle checkbox selection
+  const handleSelectAll = () => {
+    if (selectedCVEs.length === filteredCVEs.length) {
+      setSelectedCVEs([]);
+    } else {
+      setSelectedCVEs(filteredCVEs.map(c => c.id));
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'bg-red-100 text-red-800';
-      case 'ongoing': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'risk_accepted': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const handleSelectCVE = (id: string) => {
+    setSelectedCVEs(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const getSeverityClass = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'severity-critical';
+      case 'high': return 'severity-high';
+      case 'medium': return 'severity-medium';
+      case 'low': return 'severity-low';
+      default: return '';
     }
   };
 
@@ -234,484 +350,493 @@ function POAMPageContent() {
     });
   };
 
-  const calculateMetrics = () => {
-    const total = poamItems.length;
-    const open = poamItems.filter(i => i.status === 'open').length;
-    const ongoing = poamItems.filter(i => i.status === 'ongoing').length;
-    const completed = poamItems.filter(i => i.status === 'completed').length;
-    const overdue = poamItems.filter(i => 
-      i.status !== 'completed' && new Date(i.scheduledCompletionDate) < new Date()
-    ).length;
-
-    return { total, open, ongoing, completed, overdue };
-  };
-
-  const metrics = calculateMetrics();
+  const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
+    { id: 'project-cves', label: 'PROJECT CVEs', icon: AlertTriangle },
+    { id: 'scan-files', label: 'SCAN FILES', icon: FileText },
+    { id: 'project-files', label: 'PROJECT FILES', icon: GitBranch },
+    { id: 'pipeline-history', label: 'PIPELINE HISTORY', icon: History },
+    { id: 'poam-items', label: 'POA&M ITEMS', icon: Shield },
+  ];
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-foreground text-lg">Loading POA&M...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent-cyan)] mx-auto mb-4"></div>
+          <p className="text-[var(--text-primary)]">Loading Cyber POA&M...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="p-6 min-h-screen">
       {/* Header */}
-      <div className="apollo-header">
+      <div className="poam-header mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Cyber POA&M</h1>
-            <p className="text-sm text-muted-foreground">Plan of Action and Milestones Management</p>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-wide">Cyber POA&M</h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
+              Plan of Action and Milestones - CVE Management
+            </p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-4">
+            {/* Project Selector */}
+            <div className="relative">
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="enterprise-select appearance-none pr-8"
+              >
+                <option value="optimal-platform">optimal-platform</option>
+                <option value="api-gateway">api-gateway</option>
+                <option value="scanner-service">scanner-service</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
+            </div>
+            {/* Environment Selector */}
+            <div className="relative">
+              <select
+                value={selectedEnv}
+                onChange={(e) => setSelectedEnv(e.target.value)}
+                className="enterprise-select appearance-none pr-8"
+              >
+                <option value="production">Production</option>
+                <option value="staging">Staging</option>
+                <option value="development">Development</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
+            </div>
+            {/* Actions */}
             <button
-              onClick={loadPOAMData}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              onClick={handleRefresh}
+              className="enterprise-btn enterprise-btn-secondary"
+              disabled={isRefreshing}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <button className="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-card hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-              <Download className="h-4 w-4 mr-2" />
+            <button className="enterprise-btn enterprise-btn-secondary">
+              <Download className="w-4 h-4" />
               Export
             </button>
           </div>
         </div>
       </div>
 
-      <div className="p-6">
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-primary">{metrics.total}</div>
-            <div className="apollo-metric-label">Total Items</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-red-500">{metrics.open}</div>
-            <div className="apollo-metric-label">Open</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-yellow-500">{metrics.ongoing}</div>
-            <div className="apollo-metric-label">Ongoing</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-green-500">{metrics.completed}</div>
-            <div className="apollo-metric-label">Completed</div>
-          </div>
-          <div className="apollo-metric-card">
-            <div className="apollo-metric-value text-orange-500">{metrics.overdue}</div>
-            <div className="apollo-metric-label">Overdue</div>
-          </div>
+      {/* CVE Metrics Row */}
+      <div className="cve-metrics-row mb-6">
+        <div className="cve-metric-card">
+          <div className="metric-value">{cveMetrics.total}</div>
+          <div className="metric-label">Total CVEs</div>
         </div>
-
-        {/* Filters */}
-        <div className="bg-card rounded-lg shadow-sm border border-border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Search</label>
-              <input
-                type="text"
-                placeholder="Search POA&M items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All Statuses</option>
-                <option value="open">Open</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-                <option value="risk_accepted">Risk Accepted</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Severity</label>
-              <select
-                value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All Severities</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            
-            <div className="flex items-end">
-              <div className="text-sm text-muted-foreground">
-                Showing {filteredItems.length} of {poamItems.length} items
-              </div>
-            </div>
-          </div>
+        <div className="cve-metric-card warning">
+          <div className="metric-value">{cveMetrics.needingAction}</div>
+          <div className="metric-label">Needing Action</div>
         </div>
-
-        {/* POA&M Items Table */}
-        <div className="bg-card rounded-lg shadow-sm border border-border">
-          <div className="px-6 py-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-foreground">
-                POA&M Items ({filteredItems.length})
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Last updated: {new Date().toLocaleString()}
-              </p>
-            </div>
-          </div>
-          
-          {filteredItems.length === 0 ? (
-            <div className="p-12 text-center">
-              <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No POA&M items found</h3>
-              <p className="text-muted-foreground">Try adjusting your search criteria or filters.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Control ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Weakness
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Severity
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Assigned To
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-card divide-y divide-border">
-                  {filteredItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-muted/50">
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                          {item.controlId}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-foreground max-w-xs">{item.weakness}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getSeverityColor(item.severity)}`}>
-                          {item.severity}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                          {item.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-foreground">{item.assignedTo}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-sm text-foreground">
-                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                          {formatDate(item.scheduledCompletionDate)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <button 
-                          onClick={() => {
-                            setSelectedItem(item);
-                            setShowDetailsModal(true);
-                          }}
-                          className="text-primary hover:text-primary/80 text-sm font-medium"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div className="cve-metric-card critical">
+          <div className="metric-value">{cveMetrics.critical}</div>
+          <div className="metric-label">Critical</div>
+        </div>
+        <div className="cve-metric-card high">
+          <div className="metric-value">{cveMetrics.high}</div>
+          <div className="metric-label">High</div>
+        </div>
+        <div className="cve-metric-card medium">
+          <div className="metric-value">{cveMetrics.medium}</div>
+          <div className="metric-label">Medium</div>
+        </div>
+        <div className="cve-metric-card low">
+          <div className="metric-value">{cveMetrics.low}</div>
+          <div className="metric-label">Low</div>
+        </div>
+        <div className="cve-metric-card blacklist">
+          <div className="metric-value">{cveMetrics.blacklisted}</div>
+          <div className="metric-label">Blacklisted</div>
         </div>
       </div>
 
-      {/* Details Modal */}
-      {showDetailsModal && selectedItem && (
-        <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative w-11/12 md:w-3/4 lg:w-2/3 max-h-[90vh] overflow-y-auto bg-card rounded-lg shadow-xl border border-border">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-foreground">POA&M Item Details</h3>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <XCircle className="h-6 w-6" />
-                </button>
+      {/* Tabs */}
+      <div className="poam-tabs mb-6">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`poam-tab ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'project-cves' && (
+        <div className="enterprise-card">
+          {/* Filters */}
+          <div className="p-4 border-b border-[var(--border-default)]">
+            <div className="flex items-center gap-4">
+              <div className="enterprise-search flex-1 max-w-md">
+                <Search className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search CVEs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="enterprise-input"
+                />
               </div>
-              
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Control ID</label>
-                    <p className="text-sm text-foreground font-mono">{selectedItem.controlId}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Severity</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getSeverityColor(selectedItem.severity)}`}>
-                      {selectedItem.severity}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">Weakness Description</label>
-                  <p className="text-sm text-foreground">{selectedItem.weakness}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-1">Remediation Plan</label>
-                  <p className="text-sm text-foreground">{selectedItem.remediation}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Resources Required</label>
-                    <p className="text-sm text-foreground">{selectedItem.resources}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Estimated Cost</label>
-                    <p className="text-sm text-foreground">{selectedItem.estimatedCost}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Assigned To</label>
-                    <p className="text-sm text-foreground">{selectedItem.assignedTo}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedItem.status)}`}>
-                      {selectedItem.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Submitted Date</label>
-                    <p className="text-sm text-foreground">{formatDate(selectedItem.submittedDate)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Scheduled Completion</label>
-                    <p className="text-sm text-foreground">{formatDate(selectedItem.scheduledCompletionDate)}</p>
-                  </div>
-                </div>
-
-                {selectedItem.milestones.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-2">Milestones</label>
-                    <div className="space-y-2">
-                      {selectedItem.milestones.map((milestone) => (
-                        <div key={milestone.id} className="flex items-start space-x-3 p-3 bg-muted/50 rounded-lg">
-                          <div className="flex-shrink-0 mt-1">
-                            {milestone.status === 'completed' ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                            ) : milestone.status === 'in_progress' ? (
-                              <Clock className="h-5 w-5 text-yellow-500" />
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-gray-400" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">{milestone.description}</p>
-                            <div className="flex items-center space-x-4 mt-1">
-                              <p className="text-xs text-muted-foreground">
-                                Scheduled: {formatDate(milestone.scheduledDate)}
-                              </p>
-                              {milestone.completedDate && (
-                                <p className="text-xs text-green-600">
-                                  Completed: {formatDate(milestone.completedDate)}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-[var(--text-muted)]" />
+                <select
+                  value={severityFilter}
+                  onChange={(e) => setSeverityFilter(e.target.value)}
+                  className="enterprise-select"
                 >
-                  Close
-                </button>
+                  <option value="all">All Severities</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+                <select
+                  value={scanTypeFilter}
+                  onChange={(e) => setScanTypeFilter(e.target.value)}
+                  className="enterprise-select"
+                >
+                  <option value="all">All Scan Types</option>
+                  <option value="container">Container</option>
+                  <option value="dependency">Dependency</option>
+                  <option value="sast">SAST</option>
+                  <option value="dast">DAST</option>
+                </select>
               </div>
             </div>
+          </div>
+
+          {/* Batch Actions */}
+          {selectedCVEs.length > 0 && (
+            <div className="p-3 bg-[var(--bg-active)] border-b border-[var(--border-default)] flex items-center gap-4">
+              <span className="text-sm text-[var(--text-secondary)]">
+                {selectedCVEs.length} selected
+              </span>
+              <button className="enterprise-btn enterprise-btn-primary text-sm py-1">
+                <FileCheck className="w-3.5 h-3.5" />
+                Create POA&M
+              </button>
+              <button className="enterprise-btn enterprise-btn-secondary text-sm py-1">
+                <Ban className="w-3.5 h-3.5" />
+                Blacklist
+              </button>
+              <button className="enterprise-btn enterprise-btn-secondary text-sm py-1">
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
+            </div>
+          )}
+
+          {/* CVE Table */}
+          <div className="overflow-x-auto">
+            <table className="enterprise-table">
+              <thead>
+                <tr>
+                  <th className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedCVEs.length === filteredCVEs.length && filteredCVEs.length > 0}
+                      onChange={handleSelectAll}
+                      className="enterprise-checkbox"
+                    />
+                  </th>
+                  <th>CVE</th>
+                  <th>Scan Type</th>
+                  <th>Package</th>
+                  <th>Severity</th>
+                  <th>CVSS</th>
+                  <th>Type</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCVEs.map((cve) => (
+                  <tr key={cve.id} className={selectedCVEs.includes(cve.id) ? 'selected' : ''}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedCVEs.includes(cve.id)}
+                        onChange={() => handleSelectCVE(cve.id)}
+                        className="enterprise-checkbox"
+                      />
+                    </td>
+                    <td>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-sm text-[var(--accent-cyan)]">{cve.cve}</span>
+                        <span className="text-xs text-[var(--text-muted)] truncate max-w-[200px]">{cve.title}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="scan-type-badge">{cve.scanType}</span>
+                    </td>
+                    <td>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-[var(--text-primary)]">{cve.package}</span>
+                        <span className="text-xs text-[var(--text-muted)]">v{cve.version}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`severity-badge ${getSeverityClass(cve.severity)}`}>
+                        {cve.severity}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-sm text-[var(--text-primary)]">{cve.cvssRaw}</span>
+                        <span className="text-xs text-[var(--text-muted)]">v{cve.cvssVersion}</span>
+                      </div>
+                    </td>
+                    <td className="text-sm text-[var(--text-secondary)]">{cve.cveType}</td>
+                    <td className="text-sm text-[var(--text-muted)]">{formatDate(cve.createdAt)}</td>
+                    <td>
+                      <button className="text-[var(--accent-cyan)] hover:text-[var(--text-primary)] transition-colors">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredCVEs.length === 0 && (
+            <div className="p-12 text-center">
+              <AlertTriangle className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">No CVEs found</h3>
+              <p className="text-[var(--text-muted)]">Try adjusting your search or filter criteria.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'scan-files' && (
+        <div className="enterprise-card">
+          <div className="p-4 border-b border-[var(--border-default)]">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Scan Files</h3>
+            <p className="text-sm text-[var(--text-muted)]">Uploaded vulnerability scan results</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="enterprise-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Scan Type</th>
+                  <th>CVE Count</th>
+                  <th>Uploaded</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scanFiles.map((file) => (
+                  <tr key={file.id}>
+                    <td>
+                      <span className="font-mono text-sm text-[var(--text-primary)]">{file.name}</span>
+                    </td>
+                    <td>
+                      <span className="scan-type-badge">{file.scanType}</span>
+                    </td>
+                    <td className="font-mono text-[var(--accent-cyan)]">{file.cveCount}</td>
+                    <td className="text-[var(--text-muted)]">{formatDate(file.uploadedAt)}</td>
+                    <td>
+                      <span className={`status-badge ${file.status === 'processed' ? 'success' : file.status === 'processing' ? 'warning' : 'error'}`}>
+                        {file.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Create POA&M Modal */}
-      {showCreateModal && newPOAMData && (
-        <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative w-11/12 md:w-3/4 lg:w-2/3 max-h-[90vh] overflow-y-auto bg-card rounded-lg shadow-xl border border-border">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-foreground">Create POA&M from Vulnerabilities</h3>
+      {activeTab === 'project-files' && (
+        <div className="enterprise-card p-12 text-center">
+          <GitBranch className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">Project Files</h3>
+          <p className="text-[var(--text-muted)]">View and manage project source files with vulnerability annotations.</p>
+        </div>
+      )}
+
+      {activeTab === 'pipeline-history' && (
+        <div className="enterprise-card p-12 text-center">
+          <History className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">Pipeline Scan History</h3>
+          <p className="text-[var(--text-muted)]">View historical pipeline scan results and trends.</p>
+        </div>
+      )}
+
+      {activeTab === 'poam-items' && (
+        <div className="enterprise-card">
+          <div className="p-4 border-b border-[var(--border-default)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">POA&M Items</h3>
+                <p className="text-sm text-[var(--text-muted)]">Plan of Action and Milestones</p>
+              </div>
+              <div className="text-sm text-[var(--text-muted)]">
+                {poamItems.length} items
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="enterprise-table">
+              <thead>
+                <tr>
+                  <th>Control ID</th>
+                  <th>Weakness</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>Assigned To</th>
+                  <th>Due Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {poamItems.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <span className="font-mono text-sm text-[var(--accent-cyan)]">{item.controlId}</span>
+                    </td>
+                    <td>
+                      <span className="text-sm text-[var(--text-primary)] line-clamp-1">{item.weakness}</span>
+                    </td>
+                    <td>
+                      <span className={`severity-badge ${getSeverityClass(item.severity)}`}>
+                        {item.severity}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${item.status === 'completed' ? 'success' : item.status === 'ongoing' ? 'warning' : item.status === 'open' ? 'error' : 'info'}`}>
+                        {item.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="text-sm text-[var(--text-secondary)]">{item.assignedTo}</td>
+                    <td className="text-sm text-[var(--text-muted)]">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {formatDate(item.scheduledCompletionDate)}
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowDetailsModal(true);
+                        }}
+                        className="text-[var(--accent-cyan)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedItem && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[var(--bg-surface)] rounded-lg border border-[var(--border-default)]">
+            <div className="sticky top-0 bg-[var(--bg-surface)] border-b border-[var(--border-default)] px-6 py-4 z-10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-[var(--text-primary)]">POA&M Item Details</h3>
                 <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                 >
                   <XCircle className="h-6 w-6" />
                 </button>
               </div>
-              
-              <div className="mb-6">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Creating POA&M items for {newPOAMData.vulnerabilities?.length} vulnerabilities
-                </p>
-                
-                <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                  <h4 className="text-sm font-medium text-foreground mb-3">Selected Vulnerabilities:</h4>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {newPOAMData.vulnerabilities?.map((vuln: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-background rounded border border-border">
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Control ID</label>
+                  <p className="text-sm font-mono text-[var(--text-primary)]">{selectedItem.controlId}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Severity</label>
+                  <span className={`severity-badge ${getSeverityClass(selectedItem.severity)}`}>
+                    {selectedItem.severity}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Weakness Description</label>
+                <p className="text-sm text-[var(--text-secondary)]">{selectedItem.weakness}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Remediation Plan</label>
+                <p className="text-sm text-[var(--text-secondary)]">{selectedItem.remediation}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Resources</label>
+                  <p className="text-sm text-[var(--text-secondary)]">{selectedItem.resources}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Estimated Cost</label>
+                  <p className="text-sm text-[var(--text-secondary)]">{selectedItem.estimatedCost}</p>
+                </div>
+              </div>
+
+              {selectedItem.milestones.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-2">Milestones</label>
+                  <div className="space-y-2">
+                    {selectedItem.milestones.map((milestone) => (
+                      <div key={milestone.id} className="flex items-start space-x-3 p-3 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)]">
+                        <div className="flex-shrink-0 mt-1">
+                          {milestone.status === 'completed' ? (
+                            <CheckCircle className="h-5 w-5 text-[var(--status-success)]" />
+                          ) : milestone.status === 'in_progress' ? (
+                            <Clock className="h-5 w-5 text-[var(--status-warning)]" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-[var(--text-muted)]" />
+                          )}
+                        </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">{vuln.title}</p>
-                          <div className="flex items-center space-x-3 mt-1">
-                            <span className="text-xs text-muted-foreground">{vuln.cve}</span>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${
-                              vuln.severity === 'critical' ? 'bg-red-600' :
-                              vuln.severity === 'high' ? 'bg-orange-600' :
-                              vuln.severity === 'medium' ? 'bg-yellow-600' :
-                              'bg-blue-600'
-                            }`}>
-                              {vuln.severity}
-                            </span>
-                          </div>
+                          <p className="text-sm font-medium text-[var(--text-primary)]">{milestone.description}</p>
+                          <p className="text-xs text-[var(--text-muted)] mt-1">
+                            Scheduled: {formatDate(milestone.scheduledDate)}
+                            {milestone.completedDate && (
+                              <span className="text-[var(--status-success)] ml-4">
+                                Completed: {formatDate(milestone.completedDate)}
+                              </span>
+                            )}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
+              )}
 
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
-                        POA&M Items Will Be Created
-                      </h4>
-                      <p className="text-sm text-green-700 dark:text-green-300">
-                        Each vulnerability will be converted into a POA&M item with:
-                      </p>
-                      <ul className="mt-2 text-sm text-green-700 dark:text-green-300 list-disc list-inside space-y-1">
-                        <li>Control ID mapped from vulnerability type</li>
-                        <li>Severity level preserved</li>
-                        <li>Scheduled completion date (90 days from now)</li>
-                        <li>Status set to "open"</li>
-                        <li>Remediation plan based on vulnerability details</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex justify-end space-x-3">
+              <div className="pt-4 border-t border-[var(--border-default)] flex justify-end">
                 <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-border text-foreground bg-background rounded-md hover:bg-muted"
+                  onClick={() => setShowDetailsModal(false)}
+                  className="enterprise-btn enterprise-btn-primary"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    // Create POA&M items from vulnerabilities
-                    const existingItems = JSON.parse(localStorage.getItem('poam_items') || '[]');
-                    const newItems: POAMItem[] = newPOAMData.vulnerabilities.map((vuln: any, idx: number) => {
-                      const newId = String(existingItems.length + idx + 1);
-                      const scheduledDate = new Date();
-                      scheduledDate.setDate(scheduledDate.getDate() + 90); // 90 days from now
-                      
-                      return {
-                        id: newId,
-                        controlId: vuln.severity === 'critical' ? 'IA-5' : 
-                                   vuln.severity === 'high' ? 'SC-7' : 
-                                   vuln.severity === 'medium' ? 'AU-6' : 'AC-2',
-                        weakness: `${vuln.title} - ${vuln.package}`,
-                        severity: vuln.severity,
-                        status: 'open',
-                        scheduledCompletionDate: scheduledDate.toISOString().split('T')[0],
-                        submittedDate: new Date().toISOString().split('T')[0],
-                        assignedTo: 'Security Team',
-                        milestones: [
-                          {
-                            id: `m${newId}-1`,
-                            description: 'Assess vulnerability impact',
-                            scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                            status: 'pending'
-                          },
-                          {
-                            id: `m${newId}-2`,
-                            description: 'Apply security patch or workaround',
-                            scheduledDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                            status: 'pending'
-                          },
-                          {
-                            id: `m${newId}-3`,
-                            description: 'Verify fix and conduct testing',
-                            scheduledDate: scheduledDate.toISOString().split('T')[0],
-                            status: 'pending'
-                          }
-                        ],
-                        comments: [],
-                        remediation: `Address vulnerability ${vuln.cve} in ${vuln.package} ${vuln.version}. ${vuln.remediation || 'Update to the latest secure version.'}`,
-                        resources: 'Security Team, Development Team',
-                        estimatedCost: vuln.severity === 'critical' ? '$20,000' : 
-                                      vuln.severity === 'high' ? '$15,000' : 
-                                      vuln.severity === 'medium' ? '$10,000' : '$5,000'
-                      };
-                    });
-                    
-                    // Merge with existing items
-                    const allItems = [...existingItems, ...newItems];
-                    localStorage.setItem('poam_items', JSON.stringify(allItems));
-                    
-                    // Show success and reload
-                    alert(`Successfully created ${newItems.length} POA&M item(s)!`);
-                    setShowCreateModal(false);
-                    loadPOAMData();
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                >
-                  Create POA&M Items
+                  Close
                 </button>
               </div>
             </div>
@@ -725,10 +850,10 @@ function POAMPageContent() {
 export default function POAMPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-foreground text-lg">Loading POA&M...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent-cyan)] mx-auto mb-4"></div>
+          <p className="text-[var(--text-primary)]">Loading Cyber POA&M...</p>
         </div>
       </div>
     }>
@@ -736,4 +861,3 @@ export default function POAMPage() {
     </Suspense>
   );
 }
-

@@ -1,320 +1,491 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ExternalLink, Shield, BarChart3, Lock, GitBranch,
-  MessageSquare, Archive, TrendingUp, FileText, Waypoints,
-  Brain, Zap, Target, AlertTriangle, Package, Radio,
-  ChevronRight, ArrowRight
+  GitBranch,
+  Rocket,
+  Palette,
+  Container,
+  Shield,
+  Bug,
+  ShieldAlert,
+  ShieldCheck,
+  Cloud,
+  Database,
+  BarChart3,
+  DollarSign,
+  PieChart,
+  CheckSquare,
+  FileText,
+  ExternalLink,
+  Search,
+  AlertTriangle,
+  Radio,
+  Clock,
+  TrendingDown,
+  RefreshCw,
 } from 'lucide-react';
 
-interface ProductCard {
+type Category = 'all' | 'development' | 'security' | 'cloud' | 'monitoring' | 'collaboration';
+
+interface Integration {
   id: string;
   name: string;
-  icon: any;
+  icon: React.ElementType;
+  category: Exclude<Category, 'all'>;
   description: string;
-  category: string;
-  href: string;
-  status: 'active' | 'coming_soon' | 'beta';
-  isInternal: boolean;
-  metrics?: {
-    label: string;
-    value: string;
-    trend?: 'up' | 'down' | 'neutral';
-  };
+  launchUrl: string;
+  isExternal: boolean;
+  status: 'connected' | 'disconnected' | 'not_configured';
 }
 
+// Integration URLs - configurable via environment variables
+const SERVICE_URLS = {
+  gitlab: process.env.NEXT_PUBLIC_GITLAB_URL || 'https://gitlab.gooptimal.io',
+  harbor: process.env.NEXT_PUBLIC_HARBOR_URL || 'https://harbor.gooptimal.io',
+  grafana: process.env.NEXT_PUBLIC_GRAFANA_URL || 'https://grafana.gooptimal.io',
+  argocd: process.env.NEXT_PUBLIC_ARGOCD_URL || 'https://argocd.gooptimal.io',
+  jira: process.env.NEXT_PUBLIC_JIRA_URL || 'https://jira.gooptimal.io',
+  confluence: process.env.NEXT_PUBLIC_CONFLUENCE_URL || 'https://confluence.gooptimal.io',
+  kubecost: process.env.NEXT_PUBLIC_KUBECOST_URL || 'https://kubecost.gooptimal.io',
+};
+
+const integrations: Integration[] = [
+  // Development
+  {
+    id: 'gitlab',
+    name: 'GitLab',
+    icon: GitBranch,
+    category: 'development',
+    description: 'Source control & CI/CD pipelines',
+    launchUrl: SERVICE_URLS.gitlab,
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'argocd',
+    name: 'ArgoCD',
+    icon: Rocket,
+    category: 'development',
+    description: 'GitOps continuous delivery',
+    launchUrl: SERVICE_URLS.argocd,
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'drawio',
+    name: 'Draw.io',
+    icon: Palette,
+    category: 'development',
+    description: 'Diagram and flowchart creation',
+    launchUrl: 'https://app.diagrams.net',
+    isExternal: true,
+    status: 'connected',
+  },
+  // Security
+  {
+    id: 'harbor',
+    name: 'Harbor',
+    icon: Container,
+    category: 'security',
+    description: 'Container registry & scanning',
+    launchUrl: SERVICE_URLS.harbor,
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'snyk',
+    name: 'Snyk',
+    icon: Shield,
+    category: 'security',
+    description: 'Dependency & container scanning',
+    launchUrl: 'https://app.snyk.io',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'trivy',
+    name: 'Trivy',
+    icon: Bug,
+    category: 'security',
+    description: 'Container vulnerability scanning',
+    launchUrl: '/services/trivy',
+    isExternal: false,
+    status: 'connected',
+  },
+  {
+    id: 'nessus',
+    name: 'Nessus',
+    icon: ShieldAlert,
+    category: 'security',
+    description: 'Vulnerability assessment',
+    launchUrl: 'https://cloud.tenable.com/nessus',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'tenable',
+    name: 'Tenable',
+    icon: ShieldCheck,
+    category: 'security',
+    description: 'Enterprise vulnerability management',
+    launchUrl: 'https://cloud.tenable.com',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'rapid7',
+    name: 'Rapid7',
+    icon: Shield,
+    category: 'security',
+    description: 'Security analytics & insights',
+    launchUrl: 'https://insight.rapid7.com',
+    isExternal: true,
+    status: 'not_configured',
+  },
+  // Cloud
+  {
+    id: 'aws-inspector',
+    name: 'AWS Inspector',
+    icon: Cloud,
+    category: 'cloud',
+    description: 'AWS security assessment',
+    launchUrl: 'https://console.aws.amazon.com/inspector',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'azure-defender',
+    name: 'Azure Defender',
+    icon: Cloud,
+    category: 'cloud',
+    description: 'Azure security center',
+    launchUrl: 'https://portal.azure.com',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'kion',
+    name: 'Kion',
+    icon: Database,
+    category: 'cloud',
+    description: 'Cloud governance & cost',
+    launchUrl: 'https://app.kion.io',
+    isExternal: true,
+    status: 'connected',
+  },
+  // Monitoring
+  {
+    id: 'grafana',
+    name: 'Grafana',
+    icon: BarChart3,
+    category: 'monitoring',
+    description: 'Metrics visualization',
+    launchUrl: SERVICE_URLS.grafana,
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'kubecost',
+    name: 'Kubecost',
+    icon: DollarSign,
+    category: 'monitoring',
+    description: 'Kubernetes cost monitoring',
+    launchUrl: SERVICE_URLS.kubecost,
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'superset',
+    name: 'Superset',
+    icon: PieChart,
+    category: 'monitoring',
+    description: 'Data visualization & BI',
+    launchUrl: 'https://superset.apache.org',
+    isExternal: true,
+    status: 'not_configured',
+  },
+  // Collaboration
+  {
+    id: 'jira',
+    name: 'Jira',
+    icon: CheckSquare,
+    category: 'collaboration',
+    description: 'Issue & project tracking',
+    launchUrl: SERVICE_URLS.jira,
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'confluence',
+    name: 'Confluence',
+    icon: FileText,
+    category: 'collaboration',
+    description: 'Team documentation & wiki',
+    launchUrl: SERVICE_URLS.confluence,
+    isExternal: true,
+    status: 'connected',
+  },
+];
+
+const categories: { id: Category; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'development', label: 'Development' },
+  { id: 'security', label: 'Security' },
+  { id: 'cloud', label: 'Cloud' },
+  { id: 'monitoring', label: 'Monitoring' },
+  { id: 'collaboration', label: 'Collaboration' },
+];
+
+const categoryColors: Record<Exclude<Category, 'all'>, string> = {
+  development: 'development',
+  security: 'security',
+  cloud: 'cloud',
+  monitoring: 'monitoring',
+  collaboration: 'collaboration',
+};
+
+const statusConfig = {
+  connected: { label: 'Connected', className: 'connected' },
+  disconnected: { label: 'Disconnected', className: 'disconnected' },
+  not_configured: { label: 'Not Configured', className: 'configuring' },
+};
+
 export default function LaunchPadPage() {
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState<Category>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const products: ProductCard[] = [
-    {
-      id: 'command-center',
-      name: 'Command Center',
-      icon: Target,
-      description: 'Real-time security monitoring and alerting across all environments',
-      category: 'Security',
-      href: '/command-center',
-      status: 'active',
-      isInternal: true,
-      metrics: { label: 'Active Alerts', value: '7', trend: 'up' }
-    },
-    {
-      id: 'hub',
-      name: 'Optimal Hub',
-      icon: Waypoints,
-      description: 'Centralized project management and deployment tracking',
-      category: 'Management',
-      href: '/hub',
-      status: 'active',
-      isInternal: true,
-      metrics: { label: 'Environments', value: '4' }
-    },
-    {
-      id: 'vulnerabilities',
-      name: 'Vulnerability Management',
-      icon: AlertTriangle,
-      description: 'Track and remediate CVEs across your software supply chain',
-      category: 'Security',
-      href: '/vulnerabilities',
-      status: 'active',
-      isInternal: true,
-      metrics: { label: 'Open CVEs', value: '275', trend: 'down' }
-    },
-    {
-      id: 'sbom',
-      name: 'SBOM Manager',
-      icon: Package,
-      description: 'Software Bill of Materials generation and analysis',
-      category: 'Compliance',
-      href: '/sbom',
-      status: 'active',
-      isInternal: true,
-      metrics: { label: 'Components', value: '1,243' }
-    },
-    {
-      id: 'agents',
-      name: 'Security Agents',
-      icon: Radio,
-      description: 'Deploy and manage scanning agents across your infrastructure',
-      category: 'Security',
-      href: '/agents',
-      status: 'active',
-      isInternal: true,
-      metrics: { label: 'Active', value: '6' }
-    },
-    {
-      id: 'ai-security',
-      name: 'AI Security',
-      icon: Brain,
-      description: 'AI/ML model security with OWASP AISVS and NIST AI RMF',
-      category: 'Security',
-      href: '/ai-security',
-      status: 'beta',
-      isInternal: true
-    },
-    {
-      id: 'gitlab',
-      name: 'GitLab',
-      icon: GitBranch,
-      description: 'Source code management and CI/CD pipelines',
-      category: 'Development',
-      href: '/services/gitlab',
-      status: 'active',
-      isInternal: false
-    },
-    {
-      id: 'harbor',
-      name: 'Harbor',
-      icon: Archive,
-      description: 'Secure container registry and image scanning',
-      category: 'Development',
-      href: '/services/harbor',
-      status: 'active',
-      isInternal: false
-    },
-    {
-      id: 'grafana',
-      name: 'Observability',
-      icon: BarChart3,
-      description: 'Metrics, logs, and distributed tracing',
-      category: 'Operations',
-      href: '/services/grafana',
-      status: 'active',
-      isInternal: false
-    },
-    {
-      id: 'vault',
-      name: 'Secrets Management',
-      icon: Lock,
-      description: 'Centralized secrets and encryption key management',
-      category: 'Security',
-      href: '/services/vault',
-      status: 'coming_soon',
-      isInternal: false
-    }
-  ];
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short'
+      }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const categories = ['all', 'Security', 'Compliance', 'Management', 'Development', 'Operations'];
+  const filteredIntegrations = integrations.filter((integration) => {
+    const matchesCategory = selectedCategory === 'all' || integration.category === selectedCategory;
+    const matchesSearch =
+      searchTerm === '' ||
+      integration.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      integration.description.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-  const filteredProducts = activeCategory === 'all' 
-    ? products 
-    : products.filter(p => p.category === activeCategory);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return null;
-      case 'beta':
-        return <span className="status-badge info">BETA</span>;
-      case 'coming_soon':
-        return <span className="status-badge neutral">COMING SOON</span>;
-      default:
-        return null;
-    }
+  const getCategoryCount = (category: Category) => {
+    if (category === 'all') return integrations.length;
+    return integrations.filter((i) => i.category === category).length;
   };
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 1500);
+  };
+
+  // Quick metrics
+  const connectedCount = integrations.filter((i) => i.status === 'connected').length;
+  const criticalCVEs = 12;
+  const complianceScore = 94;
+  const lastScanHours = 2;
+
   return (
-    <div className="min-h-screen bg-[var(--bg-base)]">
-      {/* Hero Section */}
-      <div className="border-b border-[var(--border-subtle)]">
-        <div className="px-8 py-10">
-          <div className="max-w-4xl">
-            <h1 className="text-3xl font-semibold text-[var(--text-primary)] mb-3">
-              Welcome back, Ryan
-            </h1>
-            <p className="text-lg text-[var(--text-secondary)]">
-              Your DevSecOps platform is monitoring <span className="text-[var(--accent-cyan)] font-mono">47 assets</span> across 
-              <span className="text-[var(--accent-cyan)] font-mono"> 4 environments</span>
+    <div className="p-6 min-h-screen">
+      {/* Header */}
+      <div className="launchpad-header mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-wide">LAUNCH PAD</h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
+              Access all integrated tools and services
             </p>
           </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-4 gap-4 mt-8 max-w-4xl">
-            <Link href="/command-center" className="metric-card group">
-              <div className="flex items-center justify-between">
-                <div className="metric-label">Risk Score</div>
-                <ChevronRight className="w-4 h-4 text-[var(--text-subtle)] group-hover:text-[var(--accent-cyan)] transition-colors" />
-              </div>
-              <div className="metric-value text-[var(--accent-cyan)]">72</div>
-              <div className="text-xs text-[var(--status-success)] flex items-center gap-1 mt-1">
-                <TrendingUp className="w-3 h-3" />
-                -8 from last week
-              </div>
-            </Link>
-            <Link href="/vulnerabilities" className="metric-card critical group">
-              <div className="flex items-center justify-between">
-                <div className="metric-label">Critical CVEs</div>
-                <ChevronRight className="w-4 h-4 text-[var(--text-subtle)] group-hover:text-[var(--accent-cyan)] transition-colors" />
-              </div>
-              <div className="metric-value text-red-400">7</div>
-              <div className="text-xs text-red-400 flex items-center gap-1 mt-1">
-                <AlertTriangle className="w-3 h-3" />
-                Requires attention
-              </div>
-            </Link>
-            <Link href="/sbom" className="metric-card group">
-              <div className="flex items-center justify-between">
-                <div className="metric-label">Components</div>
-                <ChevronRight className="w-4 h-4 text-[var(--text-subtle)] group-hover:text-[var(--accent-cyan)] transition-colors" />
-              </div>
-              <div className="metric-value">1,243</div>
-              <div className="text-xs text-[var(--text-muted)] mt-1">Across all projects</div>
-            </Link>
-            <Link href="/agents" className="metric-card group">
-              <div className="flex items-center justify-between">
-                <div className="metric-label">Agents</div>
-                <ChevronRight className="w-4 h-4 text-[var(--text-subtle)] group-hover:text-[var(--accent-cyan)] transition-colors" />
-              </div>
-              <div className="metric-value text-[var(--status-success)]">6</div>
-              <div className="text-xs text-[var(--status-success)] mt-1">All healthy</div>
-            </Link>
+          <div className="flex items-center gap-4">
+            {/* Search */}
+            <div className="enterprise-search">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search integrations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="enterprise-input"
+              />
+            </div>
+            {/* Time */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg">
+              <Clock className="w-4 h-4 text-[var(--accent-cyan)]" />
+              <span className="font-mono text-sm text-[var(--text-secondary)]">{currentTime}</span>
+            </div>
+            {/* Refresh */}
+            <button
+              onClick={handleRefresh}
+              className="enterprise-btn enterprise-btn-secondary"
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Products Grid */}
-      <div className="px-8 py-8">
-        {/* Category Filter */}
-        <div className="flex items-center gap-2 mb-6">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`enterprise-btn ${
-                activeCategory === cat 
-                  ? 'enterprise-btn-primary' 
-                  : 'enterprise-btn-ghost'
-              }`}
-            >
-              {cat === 'all' ? 'All Products' : cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Products */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredProducts.map((product) => {
-            const Icon = product.icon;
-            const isDisabled = product.status === 'coming_soon';
-            
-            const CardContent = (
-              <div className={`enterprise-card h-full p-5 group ${isDisabled ? 'opacity-60' : 'cursor-pointer'}`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-2.5 rounded-lg ${
-                    product.category === 'Security' ? 'bg-red-500/10 text-red-400' :
-                    product.category === 'Compliance' ? 'bg-blue-500/10 text-blue-400' :
-                    product.category === 'Management' ? 'bg-purple-500/10 text-purple-400' :
-                    product.category === 'Development' ? 'bg-green-500/10 text-green-400' :
-                    'bg-[var(--bg-active)] text-[var(--text-muted)]'
-                  }`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  {getStatusBadge(product.status)}
-                </div>
-                
-                <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2 group-hover:text-[var(--accent-cyan)] transition-colors">
-                  {product.name}
-                </h3>
-                
-                <p className="text-sm text-[var(--text-muted)] mb-4 line-clamp-2">
-                  {product.description}
-                </p>
-                
-                {product.metrics && (
-                  <div className="mt-auto pt-4 border-t border-[var(--border-subtle)]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-[var(--text-muted)]">{product.metrics.label}</span>
-                      <span className={`text-sm font-mono font-semibold ${
-                        product.metrics.trend === 'up' ? 'text-red-400' :
-                        product.metrics.trend === 'down' ? 'text-green-400' :
-                        'text-[var(--text-primary)]'
-                      }`}>
-                        {product.metrics.value}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {!product.metrics && (
-                  <div className="mt-auto pt-4 flex items-center text-xs text-[var(--accent-cyan)] opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Open</span>
-                    <ArrowRight className="w-3 h-3 ml-1" />
-                  </div>
-                )}
-              </div>
-            );
-
-            if (isDisabled) {
-              return <div key={product.id}>{CardContent}</div>;
-            }
-
-            return (
-              <Link key={product.id} href={product.href}>
-                {CardContent}
-              </Link>
-            );
-          })}
+      {/* Quick Metrics Bar */}
+      <div className="launchpad-metrics mb-6">
+        <Link href="/vulnerabilities" className="metric-tile critical">
+          <div className="metric-icon">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="metric-content">
+            <span className="metric-value">{criticalCVEs}</span>
+            <span className="metric-label">Critical CVEs</span>
+          </div>
+        </Link>
+        <Link href="/agents" className="metric-tile success">
+          <div className="metric-icon">
+            <Radio className="w-5 h-5" />
+          </div>
+          <div className="metric-content">
+            <span className="metric-value">{connectedCount}</span>
+            <span className="metric-label">Connected</span>
+          </div>
+        </Link>
+        <Link href="/poam" className="metric-tile info">
+          <div className="metric-icon">
+            <TrendingDown className="w-5 h-5" />
+          </div>
+          <div className="metric-content">
+            <span className="metric-value">{complianceScore}%</span>
+            <span className="metric-label">Compliance</span>
+          </div>
+        </Link>
+        <div className="metric-tile neutral">
+          <div className="metric-icon">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div className="metric-content">
+            <span className="metric-value">{lastScanHours}h</span>
+            <span className="metric-label">Last Scan</span>
+          </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="px-8 py-8 border-t border-[var(--border-subtle)]">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Quick Actions</h2>
-        <div className="flex gap-3">
-          <Link href="/onboarding" className="enterprise-btn enterprise-btn-primary">
-            <Zap className="w-4 h-4" />
-            Connect New Scanner
-          </Link>
-          <Link href="/vulnerabilities" className="enterprise-btn enterprise-btn-secondary">
-            <AlertTriangle className="w-4 h-4" />
-            Review Critical CVEs
-          </Link>
-          <Link href="/sbom" className="enterprise-btn enterprise-btn-secondary">
-            <Package className="w-4 h-4" />
-            Generate SBOM Report
-          </Link>
+      {/* Category Filter */}
+      <div className="category-filter mb-6">
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => setSelectedCategory(category.id)}
+            className={`category-pill ${selectedCategory === category.id ? 'active' : ''}`}
+          >
+            {category.label}
+            <span className="ml-2 text-xs opacity-70">({getCategoryCount(category.id)})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Integrations Grid */}
+      <div className="launchpad-grid">
+        {filteredIntegrations.map((integration) => {
+          const Icon = integration.icon;
+          const status = statusConfig[integration.status];
+          const isLaunchable = integration.status !== 'not_configured';
+
+          return (
+            <div key={integration.id} className="integration-card">
+              {/* Icon */}
+              <div className="card-icon">
+                <Icon className="w-6 h-6" />
+              </div>
+
+              {/* Category Badge */}
+              <span className={`card-category ${categoryColors[integration.category]}`}>
+                {integration.category}
+              </span>
+
+              {/* Title */}
+              <h3 className="card-title">{integration.name}</h3>
+
+              {/* Description */}
+              <p className="card-description line-clamp-2">{integration.description}</p>
+
+              {/* Status */}
+              <div className={`connection-status ${status.className}`}>
+                <span className="status-dot rounded-full" />
+                <span>{status.label}</span>
+              </div>
+
+              {/* Launch Button */}
+              <div className="mt-auto pt-3">
+                {integration.isExternal ? (
+                  <a
+                    href={integration.launchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`launch-btn w-full justify-center ${!isLaunchable ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    LAUNCH
+                  </a>
+                ) : (
+                  <Link
+                    href={integration.launchUrl}
+                    className={`launch-btn w-full justify-center ${!isLaunchable ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    LAUNCH
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Empty State */}
+      {filteredIntegrations.length === 0 && (
+        <div className="enterprise-card p-12 text-center">
+          <Search className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No integrations found</h3>
+          <p className="text-sm text-[var(--text-muted)]">
+            Try adjusting your search or filter criteria.
+          </p>
+        </div>
+      )}
+
+      {/* Status Summary */}
+      <div className="mt-8 p-4 bg-[var(--bg-void)] border border-[var(--border-subtle)] rounded-lg">
+        <div className="flex flex-wrap gap-6 justify-center text-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[var(--status-success)]" />
+            <span className="text-[var(--text-muted)]">Connected:</span>
+            <span className="font-mono font-semibold text-[var(--text-primary)]">
+              {integrations.filter((i) => i.status === 'connected').length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[var(--status-error)]" />
+            <span className="text-[var(--text-muted)]">Disconnected:</span>
+            <span className="font-mono font-semibold text-[var(--text-primary)]">
+              {integrations.filter((i) => i.status === 'disconnected').length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[var(--status-warning)]" />
+            <span className="text-[var(--text-muted)]">Not Configured:</span>
+            <span className="font-mono font-semibold text-[var(--text-primary)]">
+              {integrations.filter((i) => i.status === 'not_configured').length}
+            </span>
+          </div>
         </div>
       </div>
     </div>

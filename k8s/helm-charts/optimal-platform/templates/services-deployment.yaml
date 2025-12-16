@@ -260,3 +260,7 @@ spec:
     app.kubernetes.io/component: gitlab-listener
 {{- end }}
 
+
+
+
+
