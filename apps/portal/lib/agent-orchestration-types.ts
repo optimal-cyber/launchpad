@@ -99,7 +99,7 @@ export interface WorkflowStep {
   type: 'agent' | 'condition' | 'parallel' | 'loop' | 'delay' | 'webhook';
   agentId?: string;
   action?: string;
-  inputs: Record<string, string>; // Template variables like {{step_1.output}}
+  inputs: Record<string, unknown>; // Template variables like {{step_1.output}} or arrays
   outputs: string[];
   condition?: WorkflowCondition;
   parallelSteps?: string[];
