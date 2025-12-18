@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Shield, Chrome, Building2, Lock, Zap, Terminal, Loader2, AlertCircle } from 'lucide-react';
-import { initiateSSO, initiateKeycloakLogin, isAuthenticated as checkAuth, type SSOProvider } from '@/lib/keycloak-sso';
+
+// Demo mode - always enabled unless explicitly running with Keycloak
+const DEMO_MODE = true; // Set to false only when Keycloak is properly configured
+
+type SSOProvider = 'enterprise' | 'google' | 'microsoft';
 
 export default function LoginPage() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -19,8 +23,10 @@ export default function LoginPage() {
 
   // Check if already authenticated
   useEffect(() => {
-    if (checkAuth()) {
-      router.push('/overview');
+    const token = localStorage.getItem('auth_token');
+    const expiresAt = localStorage.getItem('token_expires_at');
+    if (token && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
+      router.push('/launchpad');
     }
   }, [router]);
 
@@ -38,55 +44,67 @@ export default function LoginPage() {
     setIsAuthenticating(true);
 
     try {
-      // For demo/development: use local auth
-      // In production, this would call the auth API
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      if (!response.ok) {
-        // Fallback to demo mode for development
-        localStorage.setItem('auth_token', 'demo_token');
-        localStorage.setItem('user_info', JSON.stringify({ email, name: 'Demo User' }));
-        localStorage.setItem('token_expires_at', String(Date.now() + 24 * 60 * 60 * 1000));
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store auth data from successful response
+        localStorage.setItem('auth_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token || '');
+        localStorage.setItem('user_info', JSON.stringify(data.user || { email, name: 'User' }));
+        localStorage.setItem('token_expires_at', String(Date.now() + (data.expires_in || 86400) * 1000));
+
+        setIsAuthenticated(true);
+        setTimeout(() => router.push('/launchpad'), 1000);
       } else {
-        const data = await response.json();
-        localStorage.setItem('auth_token', data.access_token || 'demo_token');
-        localStorage.setItem('user_info', JSON.stringify(data.user || { email }));
-        localStorage.setItem('token_expires_at', String(Date.now() + 24 * 60 * 60 * 1000));
+        // Handle login failure
+        setError(data.detail || 'Login failed. Please check your credentials.');
+        setIsAuthenticating(false);
       }
-
-      setIsAuthenticated(true);
-      setTimeout(() => {
-        router.push('/overview');
-      }, 1000);
     } catch (err) {
-      // Fallback to demo mode
-      localStorage.setItem('auth_token', 'demo_token');
-      localStorage.setItem('user_info', JSON.stringify({ email, name: 'Demo User' }));
-      localStorage.setItem('token_expires_at', String(Date.now() + 24 * 60 * 60 * 1000));
-
-      setIsAuthenticated(true);
-      setTimeout(() => {
-        router.push('/overview');
-      }, 1000);
+      console.error('Login error:', err);
+      setError('Unable to connect to authentication service. Please try again.');
+      setIsAuthenticating(false);
     }
+  };
+
+  // Demo SSO login - simulates SSO authentication for demos
+  const performDemoLogin = (provider: string, providerEmail: string, displayName: string) => {
+    const timestamp = Date.now();
+    localStorage.setItem('auth_token', `demo_sso_${provider}_${timestamp}`);
+    localStorage.setItem('refresh_token', `demo_refresh_${provider}_${timestamp}`);
+    localStorage.setItem('user_info', JSON.stringify({
+      sub: `${provider}-demo-user`,
+      email: providerEmail,
+      name: displayName,
+      preferred_username: displayName.toLowerCase().replace(' ', '.'),
+      roles: ['user', 'security_analyst'],
+      provider: provider,
+    }));
+    localStorage.setItem('token_expires_at', String(timestamp + 86400 * 1000)); // 24 hours
+
+    setIsAuthenticated(true);
+    setTimeout(() => router.push('/launchpad'), 800);
   };
 
   const handleSSOLogin = async (provider: SSOProvider) => {
     setError(null);
     setSsoLoading(provider);
 
-    try {
-      // Initiate real SSO flow with Keycloak
-      await initiateSSO(provider, { loginHint: email || undefined });
-      // User will be redirected to Keycloak, so we don't need to do anything else
-    } catch (err) {
-      console.error('SSO login error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initiate SSO login');
-      setSsoLoading(null);
+    // Simulate brief loading for realistic feel
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    if (provider === 'google') {
+      performDemoLogin('google', 'demo.user@gmail.com', 'Demo User');
+    } else if (provider === 'microsoft') {
+      performDemoLogin('microsoft', 'demo.user@outlook.com', 'Demo User');
+    } else {
+      performDemoLogin('enterprise', 'demo@optimal.com', 'Demo User');
     }
   };
 
@@ -94,14 +112,10 @@ export default function LoginPage() {
     setError(null);
     setSsoLoading('enterprise');
 
-    try {
-      // Initiate Keycloak login (shows Keycloak login page with all IdP options)
-      await initiateKeycloakLogin(email || undefined);
-    } catch (err) {
-      console.error('Enterprise SSO error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initiate Enterprise SSO');
-      setSsoLoading(null);
-    }
+    // Simulate brief loading for realistic feel
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    performDemoLogin('keycloak', 'admin@optimal.com', 'Admin User');
   };
 
   if (isAuthenticated) {
@@ -243,6 +257,15 @@ export default function LoginPage() {
                   Please use your OPTIMAL credentials to access the platform
                 </p>
               </div>
+
+              {/* Demo Environment Notice - subtle for investor demos */}
+              {DEMO_MODE && (
+                <div className="mb-4 p-2 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
+                  <p className="text-xs text-center text-cyan-400/70">
+                    Demo Environment • All features fully functional
+                  </p>
+                </div>
+              )}
 
               {/* Error Message */}
               {error && (

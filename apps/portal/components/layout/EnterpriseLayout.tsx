@@ -10,7 +10,7 @@ import {
   FileText, Activity, Zap,
   Lock, HelpCircle,
   Radio, Layers, Target,
-  Rocket
+  Rocket, Brain
 } from 'lucide-react';
 
 interface EnterpriseLayoutProps {
@@ -31,6 +31,7 @@ const complianceNavItems = [
   { name: 'OSCAL SSP', href: '/oscal', icon: FileText },
   { name: 'POA&M', href: '/poam', icon: Shield },
   { name: 'Authorization', href: '/authorization', icon: Lock },
+  { name: 'AI Security', href: '/ai-security', icon: Brain },
 ];
 
 export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {

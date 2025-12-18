@@ -971,6 +971,11 @@ body {
   width: fit-content;
 }
 
+.integration-card .card-category.ai-ml {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+}
+
 .integration-card .card-category.development {
   background: rgba(139, 92, 246, 0.15);
   color: #a78bfa;

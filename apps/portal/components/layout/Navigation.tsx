@@ -3,17 +3,20 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Package, 
-  AlertTriangle, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Package,
+  AlertTriangle,
+  Settings,
   FileText,
   GitBranch,
   Shield,
   TrendingUp,
   Zap,
-  Boxes
+  Boxes,
+  Brain,
+  Layers,
+  Network
 } from 'lucide-react';
 import { usePlatformMetrics } from '@/lib/usePlatformMetrics';
 
@@ -97,6 +100,20 @@ export default function Navigation() {
       name: 'POA&M',
       href: '/poam',
       icon: FileText,
+    },
+    {
+      name: 'AI Security',
+      href: '/ai-security',
+      icon: Brain,
+      badge: 'NEW',
+      badgeType: 'label',
+    },
+    {
+      name: 'Workflows',
+      href: '/workflows',
+      icon: Layers,
+      badge: 'NEW',
+      badgeType: 'label',
     },
     {
       name: 'OSCAL SSP',

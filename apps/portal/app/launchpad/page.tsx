@@ -9,7 +9,6 @@ import {
   Container,
   Shield,
   Bug,
-  ShieldAlert,
   ShieldCheck,
   Cloud,
   Database,
@@ -25,9 +24,16 @@ import {
   Clock,
   TrendingDown,
   RefreshCw,
+  Brain,
+  Bot,
+  Cpu,
+  Eye,
+  Lock,
+  Scan,
+  Workflow,
 } from 'lucide-react';
 
-type Category = 'all' | 'development' | 'security' | 'cloud' | 'monitoring' | 'collaboration';
+type Category = 'all' | 'development' | 'security' | 'cloud' | 'monitoring' | 'collaboration' | 'ai_ml';
 
 interface Integration {
   id: string;
@@ -52,6 +58,37 @@ const SERVICE_URLS = {
 };
 
 const integrations: Integration[] = [
+  // AI & ML Security (NEW - Featured)
+  {
+    id: 'optimal-agents',
+    name: 'Optimal Agents',
+    icon: Bot,
+    category: 'ai_ml',
+    description: 'AI-powered security scanning agents',
+    launchUrl: '/agents',
+    isExternal: false,
+    status: 'connected',
+  },
+  {
+    id: 'ai-security',
+    name: 'AI Security',
+    icon: Brain,
+    category: 'ai_ml',
+    description: 'AI model security assessments',
+    launchUrl: '/ai-security',
+    isExternal: false,
+    status: 'connected',
+  },
+  {
+    id: 'huggingface',
+    name: 'HuggingFace',
+    icon: Cpu,
+    category: 'ai_ml',
+    description: 'AI model hub & discovery',
+    launchUrl: 'https://huggingface.co',
+    isExternal: true,
+    status: 'connected',
+  },
   // Development
   {
     id: 'gitlab',
@@ -85,6 +122,16 @@ const integrations: Integration[] = [
   },
   // Security
   {
+    id: 'wiz',
+    name: 'Wiz',
+    icon: Eye,
+    category: 'security',
+    description: 'Cloud security posture management',
+    launchUrl: 'https://app.wiz.io',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
     id: 'harbor',
     name: 'Harbor',
     icon: Container,
@@ -115,16 +162,6 @@ const integrations: Integration[] = [
     status: 'connected',
   },
   {
-    id: 'nessus',
-    name: 'Nessus',
-    icon: ShieldAlert,
-    category: 'security',
-    description: 'Vulnerability assessment',
-    launchUrl: 'https://cloud.tenable.com/nessus',
-    isExternal: true,
-    status: 'connected',
-  },
-  {
     id: 'tenable',
     name: 'Tenable',
     icon: ShieldCheck,
@@ -135,14 +172,24 @@ const integrations: Integration[] = [
     status: 'connected',
   },
   {
-    id: 'rapid7',
-    name: 'Rapid7',
-    icon: Shield,
+    id: 'crowdstrike',
+    name: 'CrowdStrike',
+    icon: Scan,
     category: 'security',
-    description: 'Security analytics & insights',
-    launchUrl: 'https://insight.rapid7.com',
+    description: 'Endpoint detection & response',
+    launchUrl: 'https://falcon.crowdstrike.com',
     isExternal: true,
-    status: 'not_configured',
+    status: 'connected',
+  },
+  {
+    id: 'vault',
+    name: 'HashiCorp Vault',
+    icon: Lock,
+    category: 'security',
+    description: 'Secrets management',
+    launchUrl: 'https://vault.gooptimal.io',
+    isExternal: true,
+    status: 'connected',
   },
   // Cloud
   {
@@ -156,12 +203,32 @@ const integrations: Integration[] = [
     status: 'connected',
   },
   {
+    id: 'aws-security-hub',
+    name: 'AWS Security Hub',
+    icon: Shield,
+    category: 'cloud',
+    description: 'AWS security findings aggregation',
+    launchUrl: 'https://console.aws.amazon.com/securityhub',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
     id: 'azure-defender',
     name: 'Azure Defender',
     icon: Cloud,
     category: 'cloud',
     description: 'Azure security center',
     launchUrl: 'https://portal.azure.com',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
+    id: 'gcp-scc',
+    name: 'GCP Security Command',
+    icon: Cloud,
+    category: 'cloud',
+    description: 'Google Cloud security management',
+    launchUrl: 'https://console.cloud.google.com/security',
     isExternal: true,
     status: 'connected',
   },
@@ -187,6 +254,16 @@ const integrations: Integration[] = [
     status: 'connected',
   },
   {
+    id: 'datadog',
+    name: 'Datadog',
+    icon: BarChart3,
+    category: 'monitoring',
+    description: 'Infrastructure monitoring',
+    launchUrl: 'https://app.datadoghq.com',
+    isExternal: true,
+    status: 'connected',
+  },
+  {
     id: 'kubecost',
     name: 'Kubecost',
     icon: DollarSign,
@@ -197,14 +274,14 @@ const integrations: Integration[] = [
     status: 'connected',
   },
   {
-    id: 'superset',
-    name: 'Superset',
+    id: 'splunk',
+    name: 'Splunk',
     icon: PieChart,
     category: 'monitoring',
-    description: 'Data visualization & BI',
-    launchUrl: 'https://superset.apache.org',
+    description: 'Log analysis & SIEM',
+    launchUrl: 'https://splunk.gooptimal.io',
     isExternal: true,
-    status: 'not_configured',
+    status: 'connected',
   },
   // Collaboration
   {
@@ -227,18 +304,30 @@ const integrations: Integration[] = [
     isExternal: true,
     status: 'connected',
   },
+  {
+    id: 'servicenow',
+    name: 'ServiceNow',
+    icon: Workflow,
+    category: 'collaboration',
+    description: 'IT service management',
+    launchUrl: 'https://servicenow.gooptimal.io',
+    isExternal: true,
+    status: 'connected',
+  },
 ];
 
 const categories: { id: Category; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'development', label: 'Development' },
+  { id: 'ai_ml', label: 'AI & ML' },
   { id: 'security', label: 'Security' },
   { id: 'cloud', label: 'Cloud' },
+  { id: 'development', label: 'Development' },
   { id: 'monitoring', label: 'Monitoring' },
   { id: 'collaboration', label: 'Collaboration' },
 ];
 
 const categoryColors: Record<Exclude<Category, 'all'>, string> = {
+  ai_ml: 'ai-ml',
   development: 'development',
   security: 'security',
   cloud: 'cloud',

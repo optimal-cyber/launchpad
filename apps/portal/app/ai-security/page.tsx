@@ -1,491 +1,518 @@
 'use client';
 
-import { useState } from 'react';
-import { Shield, Brain, CheckCircle2, AlertTriangle, TrendingUp, FileText, Download, ExternalLink, Award, Target, Lock, Zap } from 'lucide-react';
-
-interface BenchmarkScore {
-  category: string;
-  score: number;
-  maxScore: number;
-  status: 'pass' | 'partial' | 'fail';
-  details: string;
-}
-
-interface AIModel {
-  id: string;
-  name: string;
-  version: string;
-  framework: string;
-  lastScanned: string;
-  overallScore: number;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
-}
+import { useState, useEffect } from 'react';
+import { Shield, Brain, CheckCircle2, AlertTriangle, TrendingUp, FileText, Download, ExternalLink, Award, Target, Lock, Zap, Plus, Search, RefreshCw, Loader2, Play, Cloud, Server } from 'lucide-react';
+import type { AIModel, AIAssessmentResult, AISVSScore, NISTAIRMFScore, ATLASThreat, AssessmentConfig } from '@/lib/ai-security-types';
+import ModelDiscoveryModal from '@/components/ai-security/ModelDiscoveryModal';
+import AssessmentConfigModal from '@/components/ai-security/AssessmentConfigModal';
+import AISVSScoreCard from '@/components/ai-security/AISVSScoreCard';
+import NISTScoreCard from '@/components/ai-security/NISTScoreCard';
+import RedTeamResultsPanel from '@/components/ai-security/RedTeamResultsPanel';
 
 export default function AISecurityPage() {
-  const [selectedModel, setSelectedModel] = useState<string>('model-1');
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
+  const [latestAssessment, setLatestAssessment] = useState<AIAssessmentResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRunningAssessment, setIsRunningAssessment] = useState(false);
+  const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const aiModels: AIModel[] = [
-    {
-      id: 'model-1',
-      name: 'Fraud Detection Model',
-      version: 'v2.3.1',
-      framework: 'TensorFlow 2.14',
-      lastScanned: '2024-12-02',
-      overallScore: 87,
-      riskLevel: 'low'
-    },
-    {
-      id: 'model-2',
-      name: 'Customer Sentiment Analysis',
-      version: 'v1.8.0',
-      framework: 'PyTorch 2.1',
-      lastScanned: '2024-12-01',
-      overallScore: 72,
-      riskLevel: 'medium'
-    },
-    {
-      id: 'model-3',
-      name: 'Document Classification',
-      version: 'v3.0.2',
-      framework: 'HuggingFace Transformers',
-      lastScanned: '2024-11-30',
-      overallScore: 94,
-      riskLevel: 'low'
+  // Fetch models on mount
+  useEffect(() => {
+    fetchModels();
+  }, []);
+
+  // Fetch assessment when model changes
+  useEffect(() => {
+    if (selectedModel) {
+      fetchLatestAssessment(selectedModel.id);
     }
-  ];
+  }, [selectedModel]);
 
-  // OWASP AI Security and Privacy Guide (AISVS) benchmarks
-  const aisvsScores: BenchmarkScore[] = [
-    {
-      category: 'Data Security',
-      score: 9,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Strong data protection, encryption at rest and in transit, secure data pipelines'
-    },
-    {
-      category: 'Model Security',
-      score: 8,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Model integrity verification, secure model storage, versioning controls'
-    },
-    {
-      category: 'Input Validation',
-      score: 7,
-      maxScore: 10,
-      status: 'partial',
-      details: 'Input sanitization implemented, needs additional adversarial input testing'
-    },
-    {
-      category: 'Output Security',
-      score: 9,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Output filtering and validation, PII detection and redaction'
-    },
-    {
-      category: 'Access Control',
-      score: 10,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Role-based access control, API authentication, audit logging'
-    },
-    {
-      category: 'Model Explainability',
-      score: 6,
-      maxScore: 10,
-      status: 'partial',
-      details: 'Basic explainability features, recommend implementing SHAP or LIME'
-    },
-    {
-      category: 'Privacy Protection',
-      score: 8,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Differential privacy implemented, data anonymization in place'
-    },
-    {
-      category: 'Adversarial Robustness',
-      score: 7,
-      maxScore: 10,
-      status: 'partial',
-      details: 'Basic adversarial testing performed, recommend ongoing red team exercises'
-    },
-    {
-      category: 'Monitoring & Logging',
-      score: 9,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Comprehensive logging, drift detection, anomaly monitoring'
-    },
-    {
-      category: 'Compliance & Governance',
-      score: 8,
-      maxScore: 10,
-      status: 'pass',
-      details: 'Model governance framework, documentation, ethical guidelines'
+  const fetchModels = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/ai-security/models');
+      if (!response.ok) throw new Error('Failed to fetch models');
+      const data = await response.json();
+      setModels(data.models);
+      if (data.models.length > 0 && !selectedModel) {
+        setSelectedModel(data.models[0]);
+      }
+    } catch (err) {
+      setError('Failed to load AI models');
+      console.error('Fetch models error:', err);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
 
-  // NIST AI Risk Management Framework scores
-  const nistScores: BenchmarkScore[] = [
-    {
-      category: 'Govern',
-      score: 85,
-      maxScore: 100,
-      status: 'pass',
-      details: 'AI governance structure, policies, and accountability mechanisms'
-    },
-    {
-      category: 'Map',
-      score: 78,
-      maxScore: 100,
-      status: 'partial',
-      details: 'Risk mapping and context assessment for AI systems'
-    },
-    {
-      category: 'Measure',
-      score: 90,
-      maxScore: 100,
-      status: 'pass',
-      details: 'Metrics for AI trustworthiness and performance monitoring'
-    },
-    {
-      category: 'Manage',
-      score: 82,
-      maxScore: 100,
-      status: 'pass',
-      details: 'Risk response strategies and incident management'
+  const fetchLatestAssessment = async (modelId: string) => {
+    try {
+      const response = await fetch(`/api/ai-security/assessments?modelId=${modelId}`);
+      if (!response.ok) throw new Error('Failed to fetch assessments');
+      const data = await response.json();
+      if (data.assessments && data.assessments.length > 0) {
+        setLatestAssessment(data.assessments[0]);
+      } else {
+        setLatestAssessment(null);
+      }
+    } catch (err) {
+      console.error('Fetch assessment error:', err);
+      setLatestAssessment(null);
     }
-  ];
+  };
 
-  // MITRE ATLAS (Adversarial Threat Landscape for AI Systems)
-  const atlasThreats = [
-    { threat: 'Model Inversion', mitigated: true, severity: 'high' },
-    { threat: 'Data Poisoning', mitigated: true, severity: 'critical' },
-    { threat: 'Adversarial Examples', mitigated: false, severity: 'medium' },
-    { threat: 'Model Extraction', mitigated: true, severity: 'high' },
-    { threat: 'Membership Inference', mitigated: true, severity: 'medium' },
-    { threat: 'Backdoor Attacks', mitigated: true, severity: 'critical' }
-  ];
+  const handleStartAssessment = async (modelId: string, config: AssessmentConfig) => {
+    setIsRunningAssessment(true);
+    try {
+      const model = models.find(m => m.id === modelId);
+      const response = await fetch('/api/ai-security/assessments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          modelId,
+          modelName: model?.name,
+          modelSource: model?.source,
+          config
+        })
+      });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pass':
-        return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
-      case 'partial':
-        return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800';
-      case 'fail':
-        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
-      default:
-        return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800';
+      if (!response.ok) throw new Error('Failed to start assessment');
+      const result = await response.json();
+      setLatestAssessment(result);
+
+      // Update model score
+      setModels(prev => prev.map(m =>
+        m.id === modelId
+          ? { ...m, overallScore: result.overallScore, riskLevel: result.riskLevel, lastAssessed: result.timestamp }
+          : m
+      ));
+    } catch (err) {
+      setError('Failed to run assessment');
+      console.error('Assessment error:', err);
+    } finally {
+      setIsRunningAssessment(false);
+    }
+  };
+
+  const handleImportModels = (importedModels: AIModel[]) => {
+    setModels(prev => [...prev, ...importedModels]);
+    if (importedModels.length > 0 && !selectedModel) {
+      setSelectedModel(importedModels[0]);
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'low':
-        return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+        return 'text-green-400 bg-green-500/10 border-green-500/30';
       case 'medium':
-        return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
+        return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
       case 'high':
-        return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+        return 'text-orange-400 bg-orange-500/10 border-orange-500/30';
       case 'critical':
-        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
+        return 'text-red-400 bg-red-500/10 border-red-500/30';
       default:
-        return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
+        return 'text-[var(--text-muted)] bg-[var(--bg-surface)] border-[var(--border-subtle)]';
     }
   };
 
-  const selectedModelData = aiModels.find(m => m.id === selectedModel);
-  const overallAISVSScore = Math.round((aisvsScores.reduce((acc, s) => acc + s.score, 0) / aisvsScores.reduce((acc, s) => acc + s.maxScore, 0)) * 100);
-  const overallNISTScore = Math.round((nistScores.reduce((acc, s) => acc + s.score, 0) / nistScores.reduce((acc, s) => acc + s.maxScore, 0)) * 100);
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case 'huggingface':
+        return <Cloud className="w-4 h-4" />;
+      case 'ollama':
+      case 'local':
+        return <Server className="w-4 h-4" />;
+      default:
+        return <Brain className="w-4 h-4" />;
+    }
+  };
+
+  const overallAISVSScore = latestAssessment?.aisvsScores
+    ? Math.round(latestAssessment.aisvsScores.reduce((sum, s) => sum + s.percentage, 0) / latestAssessment.aisvsScores.length)
+    : 0;
+
+  const overallNISTScore = latestAssessment?.nistScores
+    ? Math.round(latestAssessment.nistScores.reduce((sum, s) => sum + s.score, 0) / latestAssessment.nistScores.length)
+    : 0;
+
+  const mitigatedThreats = latestAssessment?.atlasThreats
+    ? latestAssessment.atlasThreats.filter(t => t.mitigated).length
+    : 0;
+
+  const totalThreats = latestAssessment?.atlasThreats?.length || 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-cyan)] mx-auto mb-4" />
+          <p className="text-[var(--text-muted)]">Loading AI Security Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Header */}
-      <div className="apollo-header">
+      <div className="enterprise-header px-6 py-4 border-b border-[var(--border-subtle)]">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">AI Security & Benchmarks</h1>
-            <p className="text-sm text-muted-foreground">Comprehensive security assessment for AI/ML models</p>
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)]">AI Security & Benchmarks</h1>
+            <p className="text-sm text-[var(--text-muted)]">
+              Assess AI models against OWASP AISVS, NIST AI RMF, and MITRE ATLAS frameworks
+            </p>
           </div>
-          <div className="flex items-center space-x-3">
-            <button className="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-card hover:bg-muted">
-              <FileText className="h-4 w-4 mr-2" />
-              Generate Report
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowDiscoveryModal(true)}
+              className="enterprise-btn enterprise-btn-secondary"
+            >
+              <Plus className="w-4 h-4" />
+              Discover Models
             </button>
-            <button className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
-              <Download className="h-4 w-4 mr-2" />
-              Export Results
+            <button
+              onClick={fetchModels}
+              className="enterprise-btn enterprise-btn-secondary"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <button className="enterprise-btn enterprise-btn-primary">
+              <Download className="w-4 h-4" />
+              Export Report
             </button>
           </div>
         </div>
       </div>
 
       <div className="p-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
+            {error}
+            <button onClick={() => setError(null)} className="ml-4 underline">Dismiss</button>
+          </div>
+        )}
+
         {/* Model Selector */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {aiModels.map((model) => (
-            <button
-              key={model.id}
-              onClick={() => setSelectedModel(model.id)}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                selectedModel === model.id
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-card hover:border-primary/50'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <h3 className="font-medium text-foreground">{model.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">{model.framework} • {model.version}</p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Registered AI Models</h2>
+            <span className="text-sm text-[var(--text-muted)]">{models.length} models</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {models.map((model) => (
+              <button
+                key={model.id}
+                onClick={() => setSelectedModel(model)}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  selectedModel?.id === model.id
+                    ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/5'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-default)]'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--text-muted)]">{getSourceIcon(model.source)}</span>
+                    <span className="text-xs text-[var(--text-muted)] uppercase">{model.source}</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getRiskColor(model.riskLevel)}`}>
+                    {model.riskLevel === 'unknown' ? 'NOT ASSESSED' : model.riskLevel.toUpperCase()}
+                  </span>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${getRiskColor(model.riskLevel)}`}>
-                  {model.riskLevel.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-2xl font-bold text-foreground">{model.overallScore}</span>
-                <span className="text-xs text-muted-foreground">Last scan: {model.lastScanned}</span>
-              </div>
-            </button>
-          ))}
+                <h3 className="font-medium text-[var(--text-primary)] truncate">{model.name}</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1">{model.framework} • {model.version}</p>
+                <div className="flex items-center justify-between mt-3">
+                  <span className={`text-2xl font-bold ${model.overallScore > 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+                    {model.overallScore > 0 ? model.overallScore : '—'}
+                  </span>
+                  {model.lastAssessed && (
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {new Date(model.lastAssessed).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Assessment Actions */}
+        {selectedModel && (
+          <div className="mb-6 p-4 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-[var(--text-primary)]">
+                  Selected: {selectedModel.name}
+                </h3>
+                <p className="text-sm text-[var(--text-muted)]">
+                  {selectedModel.endpoint || selectedModel.huggingfaceId || 'No endpoint configured'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowConfigModal(true)}
+                disabled={isRunningAssessment}
+                className="enterprise-btn enterprise-btn-primary"
+              >
+                {isRunningAssessment ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Running Assessment...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Run Assessment
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Overall Scores */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="apollo-metric-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Overall Score</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{selectedModelData?.overallScore}</p>
-              </div>
-              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${getRiskColor(selectedModelData?.riskLevel || 'low')}`}>
-                <Award className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-
-          <div className="apollo-metric-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">AISVS Score</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{overallAISVSScore}%</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="apollo-metric-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">NIST AI RMF</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{overallNISTScore}%</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
-                <Target className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="apollo-metric-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Threats Mitigated</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{atlasThreats.filter(t => t.mitigated).length}/{atlasThreats.length}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
-                <Lock className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* OWASP AISVS Benchmarks */}
-          <div className="bg-card rounded-lg border border-border">
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground flex items-center">
-                    <Shield className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
-                    OWASP AISVS Compliance
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">AI Security Verification Standard</p>
+        {latestAssessment && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="enterprise-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)]">Overall Score</p>
+                    <p className="text-3xl font-bold text-[var(--text-primary)] mt-1">{latestAssessment.overallScore}</p>
+                  </div>
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center ${getRiskColor(latestAssessment.riskLevel)}`}>
+                    <Award className="h-6 w-6" />
+                  </div>
                 </div>
-                <a href="https://owasp.org/www-project-ai-security-and-privacy-guide/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm flex items-center">
-                  Learn More <ExternalLink className="h-3 w-3 ml-1" />
-                </a>
+              </div>
+
+              <div className="enterprise-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)]">AISVS Score</p>
+                    <p className="text-3xl font-bold text-[var(--text-primary)] mt-1">{overallAISVSScore}%</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/10 flex items-center justify-center">
+                    <Shield className="h-6 w-6 text-[var(--accent-cyan)]" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="enterprise-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)]">NIST AI RMF</p>
+                    <p className="text-3xl font-bold text-[var(--text-primary)] mt-1">{overallNISTScore}%</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <Target className="h-6 w-6 text-purple-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="enterprise-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)]">Threats Mitigated</p>
+                    <p className="text-3xl font-bold text-[var(--text-primary)] mt-1">{mitigatedThreats}/{totalThreats}</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Lock className="h-6 w-6 text-green-400" />
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {aisvsScores.map((benchmark, idx) => (
-                  <div key={idx} className="border border-border rounded-lg p-4 bg-muted/50">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="font-medium text-foreground">{benchmark.category}</h4>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(benchmark.status)}`}>
-                            {benchmark.status.toUpperCase()}
+
+            {/* Framework Results */}
+            <div className="space-y-6">
+              {/* AISVS Card */}
+              {latestAssessment.aisvsScores.length > 0 && (
+                <AISVSScoreCard scores={latestAssessment.aisvsScores} expanded={true} />
+              )}
+
+              {/* NIST Card */}
+              {latestAssessment.nistScores.length > 0 && (
+                <NISTScoreCard scores={latestAssessment.nistScores} expanded={true} />
+              )}
+
+              {/* ATLAS Threats */}
+              {latestAssessment.atlasThreats.length > 0 && (
+                <div className="enterprise-card">
+                  <div className="p-4 border-b border-[var(--border-subtle)]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                        <AlertTriangle className="w-5 h-5 text-orange-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-[var(--text-primary)]">MITRE ATLAS Threats</h3>
+                        <p className="text-xs text-[var(--text-muted)]">Adversarial Threat Landscape for AI Systems</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {latestAssessment.atlasThreats.map((threat, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between p-3 rounded-lg border ${
+                            threat.mitigated
+                              ? 'border-green-500/30 bg-green-500/5'
+                              : 'border-red-500/30 bg-red-500/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {threat.mitigated ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-400" />
+                            ) : (
+                              <AlertTriangle className="w-5 h-5 text-red-400" />
+                            )}
+                            <div>
+                              <div className="font-medium text-[var(--text-primary)]">{threat.threatName}</div>
+                              <div className="text-xs text-[var(--text-muted)]">
+                                {threat.threatId} • {threat.mitigated ? 'Mitigated' : 'Requires attention'}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs font-medium border ${getRiskColor(threat.severity)}`}>
+                            {threat.severity.toUpperCase()}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{benchmark.details}</p>
-                      </div>
-                      <div className="ml-4 text-right">
-                        <div className="text-lg font-bold text-foreground">{benchmark.score}/{benchmark.maxScore}</div>
-                        <div className="text-xs text-muted-foreground">{Math.round((benchmark.score / benchmark.maxScore) * 100)}%</div>
-                      </div>
-                    </div>
-                    <div className="mt-2 h-2 bg-background rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600"
-                        style={{ width: `${(benchmark.score / benchmark.maxScore) * 100}%` }}
-                      ></div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* NIST AI RMF + MITRE ATLAS */}
-          <div className="space-y-6">
-            {/* NIST AI RMF */}
-            <div className="bg-card rounded-lg border border-border">
-              <div className="p-6 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground flex items-center">
-                      <Target className="h-5 w-5 mr-2 text-purple-600 dark:text-purple-400" />
-                      NIST AI RMF
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">AI Risk Management Framework</p>
-                  </div>
-                  <a href="https://www.nist.gov/itl/ai-risk-management-framework" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm flex items-center">
-                    Learn More <ExternalLink className="h-3 w-3 ml-1" />
-                  </a>
                 </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {nistScores.map((benchmark, idx) => (
-                    <div key={idx} className="border border-border rounded-lg p-4 bg-muted/50">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <h4 className="font-medium text-foreground">{benchmark.category}</h4>
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(benchmark.status)}`}>
-                              {benchmark.status.toUpperCase()}
-                            </span>
+              )}
+
+              {/* Red Team Results */}
+              {latestAssessment.redTeamResults && latestAssessment.redTeamResults.length > 0 && (
+                <RedTeamResultsPanel results={latestAssessment.redTeamResults} expanded={true} />
+              )}
+
+              {/* Findings */}
+              {latestAssessment.findings.length > 0 && (
+                <div className="enterprise-card">
+                  <div className="p-4 border-b border-[var(--border-subtle)]">
+                    <h3 className="font-medium text-[var(--text-primary)] flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-[var(--accent-cyan)]" />
+                      Assessment Findings ({latestAssessment.findings.length})
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-[var(--border-subtle)]">
+                    {latestAssessment.findings.slice(0, 5).map((finding) => (
+                      <div key={finding.id} className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getRiskColor(finding.severity)}`}>
+                                {finding.severity.toUpperCase()}
+                              </span>
+                              <span className="text-xs text-[var(--text-muted)]">{finding.framework}</span>
+                            </div>
+                            <h4 className="font-medium text-[var(--text-primary)]">{finding.title}</h4>
+                            <p className="text-sm text-[var(--text-muted)] mt-1">{finding.description}</p>
+                            {finding.remediation && (
+                              <p className="text-sm text-[var(--accent-cyan)] mt-2">
+                                Remediation: {finding.remediation}
+                              </p>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{benchmark.details}</p>
-                        </div>
-                        <div className="ml-4 text-right">
-                          <div className="text-lg font-bold text-foreground">{benchmark.score}%</div>
                         </div>
                       </div>
-                      <div className="mt-2 h-2 bg-background rounded-full overflow-hidden">
+                    ))}
+                  </div>
+                  {latestAssessment.findings.length > 5 && (
+                    <div className="p-4 border-t border-[var(--border-subtle)] text-center">
+                      <button className="text-sm text-[var(--accent-cyan)] hover:underline">
+                        View all {latestAssessment.findings.length} findings
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {latestAssessment.recommendations.length > 0 && (
+                <div className="enterprise-card">
+                  <div className="p-4 border-b border-[var(--border-subtle)]">
+                    <h3 className="font-medium text-[var(--text-primary)] flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-yellow-400" />
+                      Recommended Actions
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="space-y-3">
+                      {latestAssessment.recommendations.map((rec, idx) => (
                         <div
-                          className="h-full bg-gradient-to-r from-purple-500 to-purple-600"
-                          style={{ width: `${benchmark.score}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* MITRE ATLAS */}
-            <div className="bg-card rounded-lg border border-border">
-              <div className="p-6 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground flex items-center">
-                      <AlertTriangle className="h-5 w-5 mr-2 text-orange-600 dark:text-orange-400" />
-                      MITRE ATLAS Threats
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">Adversarial Threat Landscape</p>
-                  </div>
-                  <a href="https://atlas.mitre.org/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm flex items-center">
-                    Learn More <ExternalLink className="h-3 w-3 ml-1" />
-                  </a>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-3">
-                  {atlasThreats.map((threat, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/50">
-                      <div className="flex items-center space-x-3">
-                        {threat.mitigated ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        ) : (
-                          <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                        )}
-                        <div>
-                          <div className="font-medium text-foreground">{threat.threat}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {threat.mitigated ? 'Mitigated' : 'Requires attention'}
-                          </div>
+                          key={idx}
+                          className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5"
+                        >
+                          <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-[var(--text-primary)]">{rec}</p>
                         </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getRiskColor(threat.severity)}`}>
-                        {threat.severity.toUpperCase()}
-                      </span>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Recommendations */}
-        <div className="mt-6 bg-card rounded-lg border border-border">
-          <div className="p-6 border-b border-border">
-            <h3 className="text-lg font-semibold text-foreground flex items-center">
-              <Zap className="h-5 w-5 mr-2 text-yellow-600 dark:text-yellow-400" />
-              Recommended Actions
-            </h3>
+        {/* No Assessment State */}
+        {selectedModel && !latestAssessment && !isRunningAssessment && (
+          <div className="enterprise-card p-12 text-center">
+            <Shield className="w-16 h-16 mx-auto mb-4 text-[var(--text-muted)] opacity-50" />
+            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">No Assessment Results</h3>
+            <p className="text-[var(--text-muted)] mb-6">
+              This model hasn't been assessed yet. Run an assessment to evaluate it against OWASP AISVS, NIST AI RMF, and MITRE ATLAS frameworks.
+            </p>
+            <button
+              onClick={() => setShowConfigModal(true)}
+              className="enterprise-btn enterprise-btn-primary"
+            >
+              <Play className="w-4 h-4" />
+              Run First Assessment
+            </button>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
-                <div className="flex items-start space-x-3">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-foreground">Improve Adversarial Robustness</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Implement adversarial training and conduct regular red team exercises to improve model resilience against adversarial examples.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-                <div className="flex items-start space-x-3">
-                  <Brain className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-foreground">Enhance Explainability</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Integrate SHAP or LIME libraries to provide better model interpretability and transparency for stakeholders.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+        )}
+
+        {/* No Models State */}
+        {models.length === 0 && (
+          <div className="enterprise-card p-12 text-center">
+            <Brain className="w-16 h-16 mx-auto mb-4 text-[var(--text-muted)] opacity-50" />
+            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">No AI Models Registered</h3>
+            <p className="text-[var(--text-muted)] mb-6">
+              Get started by discovering and importing AI models from HuggingFace or your local environment.
+            </p>
+            <button
+              onClick={() => setShowDiscoveryModal(true)}
+              className="enterprise-btn enterprise-btn-primary"
+            >
+              <Plus className="w-4 h-4" />
+              Discover Models
+            </button>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Modals */}
+      <ModelDiscoveryModal
+        isOpen={showDiscoveryModal}
+        onClose={() => setShowDiscoveryModal(false)}
+        onImportModels={handleImportModels}
+      />
+
+      <AssessmentConfigModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        model={selectedModel}
+        onStartAssessment={handleStartAssessment}
+      />
     </div>
   );
 }
-
-
-
-
-
