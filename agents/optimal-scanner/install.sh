@@ -228,3 +228,4 @@ optimal-scan --image alpine:latest 2>/dev/null && {
 
 echo ""
 echo -e "${GREEN}Scanner installed successfully!${NC}"
+

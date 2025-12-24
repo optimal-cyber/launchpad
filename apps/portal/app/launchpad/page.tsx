@@ -31,6 +31,16 @@ import {
   Lock,
   Scan,
   Workflow,
+  Play,
+  Box,
+  Layers,
+  Activity,
+  Target,
+  Package,
+  ChevronRight,
+  Code,
+  TestTube,
+  ClipboardCheck,
 } from 'lucide-react';
 
 type Category = 'all' | 'development' | 'security' | 'cloud' | 'monitoring' | 'collaboration' | 'ai_ml';
@@ -58,6 +68,27 @@ const SERVICE_URLS = {
 };
 
 const integrations: Integration[] = [
+  // Featured - Optimal Platform Core
+  {
+    id: 'optimal-hub',
+    name: 'Optimal Hub',
+    icon: Layers,
+    category: 'security',
+    description: 'Centralized project and vulnerability management',
+    launchUrl: '/hub',
+    isExternal: false,
+    status: 'connected',
+  },
+  {
+    id: 'optimal-registry',
+    name: 'Registry',
+    icon: Box,
+    category: 'security',
+    description: 'Hardened container images and packages',
+    launchUrl: '/registry',
+    isExternal: false,
+    status: 'connected',
+  },
   // AI & ML Security (NEW - Featured)
   {
     id: 'optimal-agents',
@@ -389,14 +420,113 @@ export default function LaunchPadPage() {
   const lastScanHours = 2;
 
   return (
-    <div className="p-6 min-h-screen">
+    <div className="min-h-screen">
+      {/* Hero Section - JADE Style */}
+      <div className="relative bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 border-b border-emerald-900/50 overflow-hidden">
+        {/* Grid Background */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'linear-gradient(rgba(16, 185, 129, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px)',
+            backgroundSize: '40px 40px'
+          }} />
+        </div>
+
+        <div className="relative z-10 px-6 py-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Title */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full">
+                <span className="text-xs font-semibold text-emerald-400 tracking-wider">SECURE SOFTWARE DELIVERY PLATFORM</span>
+              </div>
+            </div>
+
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-wide">
+              ACCELERATE BUILDS, DEPLOYMENT, AND MONITORING
+            </h1>
+            <p className="text-emerald-200/70 mb-6 max-w-2xl">
+              Access integrated DevSecOps tools, hardened container images, and automated compliance workflows. All in one platform.
+            </p>
+
+            {/* DevSecOps Flow Visualization */}
+            <div className="flex items-center justify-center gap-2 py-6 overflow-x-auto">
+              {/* Requirement Gathering */}
+              <div className="flex items-center gap-2">
+                <div className="text-center">
+                  <div className="text-xs font-medium text-emerald-300/60 mb-2">REQUIREMENT</div>
+                  <div className="w-20 h-20 rounded-full border-2 border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center">
+                    <Target className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <div className="text-xs font-medium text-emerald-300/60 mt-2">GATHERING</div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-emerald-500/50" />
+              </div>
+
+              {/* Production */}
+              <div className="flex items-center gap-2">
+                <div className="text-center">
+                  <div className="text-xs font-medium text-emerald-300/60 mb-2">PRODUCTION</div>
+                  <div className="w-20 h-20 rounded-full border-2 border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center">
+                    <Code className="w-8 h-8 text-emerald-400" />
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-emerald-500/50" />
+              </div>
+
+              {/* Testing */}
+              <div className="flex items-center gap-2">
+                <div className="text-center">
+                  <div className="text-xs font-medium text-emerald-300/60 mb-2">TESTING</div>
+                  <div className="w-20 h-20 rounded-full border-2 border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center">
+                    <TestTube className="w-8 h-8 text-emerald-400" />
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-emerald-500/50" />
+              </div>
+
+              {/* Compliance */}
+              <div className="flex items-center gap-2">
+                <div className="text-center">
+                  <div className="text-xs font-medium text-emerald-300/60 mb-2">COMPLIANCE</div>
+                  <div className="w-20 h-20 rounded-full border-2 border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center">
+                    <ClipboardCheck className="w-8 h-8 text-emerald-400" />
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-emerald-500/50" />
+              </div>
+
+              {/* Monitoring */}
+              <div className="flex items-center gap-2">
+                <div className="text-center">
+                  <div className="text-xs font-medium text-emerald-300/60 mb-2">MONITORING</div>
+                  <div className="w-20 h-20 rounded-full border-2 border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center">
+                    <Activity className="w-8 h-8 text-emerald-400" />
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-emerald-500/50" />
+              </div>
+
+              {/* Mission Success */}
+              <div className="text-center">
+                <div className="text-xs font-medium text-emerald-300/60 mb-2">MISSION</div>
+                <div className="w-20 h-20 rounded-full border-2 border-emerald-400 bg-emerald-500/20 flex items-center justify-center">
+                  <Rocket className="w-8 h-8 text-emerald-300" />
+                </div>
+                <div className="text-xs font-medium text-emerald-300/60 mt-2">SUCCESS</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="p-6">
       {/* Header */}
       <div className="launchpad-header mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-wide">LAUNCH PAD</h1>
+            <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-wide">ACCESS ALL PRODUCTS IN ONE PLACE</h2>
             <p className="text-sm text-[var(--text-muted)] mt-1">
-              Access all integrated tools and services
+              Launch integrated tools and services for secure software delivery
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -576,6 +706,7 @@ export default function LaunchPadPage() {
             </span>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

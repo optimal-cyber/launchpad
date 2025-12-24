@@ -1,0 +1,29 @@
+{
+  "id": "reference/overview",
+  "title": "Reference Overview",
+  "description": "Technical reference documentation for Optimal Platform",
+  "source": "@site/docs/reference/overview.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/overview",
+  "permalink": "/docs/reference/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/reference/overview.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Reference Overview",
+    "description": "Technical reference documentation for Optimal Platform"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Architecture",
+    "permalink": "/docs/getting-started/architecture"
+  },
+  "next": {
+    "title": "Security Overview",
+    "permalink": "/docs/reference/security/overview"
+  }
+}

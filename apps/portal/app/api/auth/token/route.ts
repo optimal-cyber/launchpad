@@ -4,15 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 // Use internal URL for backend calls (K8s service), fallback to public URL
 const KEYCLOAK_INTERNAL_URL = process.env.KEYCLOAK_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_KEYCLOAK_URL ||
-  'http://keycloak.keycloak.svc.cluster.local:8080';
+  'http://localhost:8080';
 const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || 'optimal';
 const KEYCLOAK_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || 'optimal-portal';
 const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET || '';
 
-// Demo mode enabled when no Keycloak is configured or in development
-const isDemoMode = process.env.NODE_ENV === 'development' ||
-  process.env.DEMO_MODE === 'true' ||
-  !process.env.NEXT_PUBLIC_KEYCLOAK_URL;
+// Demo mode only when explicitly enabled (not in development by default anymore)
+const isDemoMode = process.env.DEMO_MODE === 'true';
 
 // Generate demo SSO response (simulates successful Keycloak/SAML auth)
 function generateDemoSSOResponse(provider: string = 'keycloak') {

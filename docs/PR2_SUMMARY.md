@@ -199,3 +199,4 @@ async def get_vulnerabilities(db = Depends(get_db)):
 - Metrics endpoint caches on client (30-second TTL) to reduce load
 - All Pydantic models include validation and examples for OpenAPI
 
+

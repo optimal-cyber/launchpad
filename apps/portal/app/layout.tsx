@@ -23,7 +23,8 @@ const enterprisePages = [
   '/diagrams',
   '/services',
   '/settings',
-  '/launchpad'
+  '/launchpad',
+  '/registry'
 ];
 
 export default function RootLayout({

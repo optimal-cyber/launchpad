@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Shield, Chrome, Building2, Lock, Zap, Terminal, Loader2, AlertCircle } from 'lucide-react';
+import { initiateKeycloakLogin } from '@/lib/keycloak-sso';
 
-// Demo mode - always enabled unless explicitly running with Keycloak
-const DEMO_MODE = true; // Set to false only when Keycloak is properly configured
+// Demo mode - set to false when Keycloak is running
+const DEMO_MODE = false; // Real Keycloak auth enabled
 
 type SSOProvider = 'enterprise' | 'google' | 'microsoft';
 
@@ -112,10 +113,14 @@ export default function LoginPage() {
     setError(null);
     setSsoLoading('enterprise');
 
-    // Simulate brief loading for realistic feel
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    performDemoLogin('keycloak', 'admin@optimal.com', 'Admin User');
+    try {
+      // Redirect to Keycloak for real SSO authentication
+      await initiateKeycloakLogin();
+    } catch (err) {
+      console.error('SSO initiation error:', err);
+      setError('Failed to initiate SSO. Please try again.');
+      setSsoLoading(null);
+    }
   };
 
   if (isAuthenticated) {

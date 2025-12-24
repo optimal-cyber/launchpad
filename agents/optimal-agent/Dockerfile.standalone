@@ -1,0 +1,76 @@
+# Optimal Security Agent - Standalone Deployment
+# For Docker hosts, VMs, and non-Kubernetes environments
+# Includes OAuth authentication and offline queue support
+
+FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="Optimal Security Agent"
+LABEL org.opencontainers.image.description="Security scanning agent for vulnerability detection and compliance"
+LABEL org.opencontainers.image.vendor="Optimal Platform"
+LABEL org.opencontainers.image.version="1.0.0"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Trivy for vulnerability scanning
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.0
+
+# Install Syft for SBOM generation
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin v0.100.0
+
+# Create non-root user
+RUN useradd -m -u 1000 agent
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy agent framework (for OAuth support)
+COPY ../agent-framework /app/agent-framework
+
+# Copy agent code
+COPY agent.py .
+COPY config.py .
+
+# Create directories for data persistence
+RUN mkdir -p /app/tmp /app/cache /app/data /var/lib/optimal && \
+    chown -R agent:agent /app /var/lib/optimal
+
+# Data volume for offline queue and cache
+VOLUME ["/var/lib/optimal"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Environment defaults for standalone mode
+ENV OPTIMAL_API_URL=https://api.gooptimal.io \
+    OPTIMAL_HEARTBEAT_INTERVAL=60 \
+    OPTIMAL_SCAN_INTERVAL=300 \
+    OPTIMAL_LOG_LEVEL=INFO \
+    OPTIMAL_VULN_SCANNING=true \
+    OPTIMAL_RUNTIME_SECURITY=true \
+    OPTIMAL_SBOM_GENERATION=true \
+    OPTIMAL_OFFLINE_QUEUE_ENABLED=true \
+    OPTIMAL_OFFLINE_QUEUE_PATH=/var/lib/optimal/queue.db \
+    PYTHONUNBUFFERED=1
+
+# Expose metrics port
+EXPOSE 8080
+
+# Run as non-root user
+USER agent
+
+# Run agent
+CMD ["python", "agent.py"]

@@ -141,3 +141,4 @@ domain_name = ""
 # app_node_count        = 3
 # postgresql_sku_name   = "GP_Standard_D4s_v3"
 # redis_capacity        = 2
+

@@ -1,0 +1,29 @@
+{
+  "id": "reference/security/kyverno-policies",
+  "title": "Kyverno Policies",
+  "description": "Complete reference for Kyverno policies in Optimal Platform",
+  "source": "@site/docs/reference/security/kyverno-policies.md",
+  "sourceDirName": "reference/security",
+  "slug": "/reference/security/kyverno-policies",
+  "permalink": "/docs/reference/security/kyverno-policies",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/reference/security/kyverno-policies.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2,
+    "title": "Kyverno Policies",
+    "description": "Complete reference for Kyverno policies in Optimal Platform"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Security Overview",
+    "permalink": "/docs/reference/security/overview"
+  },
+  "next": {
+    "title": "Deployment Overview",
+    "permalink": "/docs/deployment/overview"
+  }
+}

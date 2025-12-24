@@ -1,0 +1,83 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/docs",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/docs",
+          "mainDocId": "getting-started/overview",
+          "docs": [
+            {
+              "id": "deployment/outpost/overview",
+              "path": "/docs/deployment/outpost/overview",
+              "sidebar": "docs"
+            },
+            {
+              "id": "deployment/overview",
+              "path": "/docs/deployment/overview",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/architecture",
+              "path": "/docs/getting-started/architecture",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/overview",
+              "path": "/docs/getting-started/overview",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/prerequisites",
+              "path": "/docs/getting-started/prerequisites",
+              "sidebar": "docs"
+            },
+            {
+              "id": "getting-started/quickstart",
+              "path": "/docs/getting-started/quickstart",
+              "sidebar": "docs"
+            },
+            {
+              "id": "reference/overview",
+              "path": "/docs/reference/overview",
+              "sidebar": "docs"
+            },
+            {
+              "id": "reference/security/kyverno-policies",
+              "path": "/docs/reference/security/kyverno-policies",
+              "sidebar": "docs"
+            },
+            {
+              "id": "reference/security/overview",
+              "path": "/docs/reference/security/overview",
+              "sidebar": "docs"
+            },
+            {
+              "id": "troubleshooting/common-issues",
+              "path": "/docs/troubleshooting/common-issues",
+              "sidebar": "docs"
+            },
+            {
+              "id": "tutorials/overview",
+              "path": "/docs/tutorials/overview",
+              "sidebar": "docs"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "docs": {
+              "link": {
+                "path": "/docs/getting-started/overview",
+                "label": "getting-started/overview"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

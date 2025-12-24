@@ -1,0 +1,29 @@
+{
+  "id": "getting-started/quickstart",
+  "title": "Quick Start",
+  "description": "Deploy Optimal Platform in 5 minutes",
+  "source": "@site/docs/getting-started/quickstart.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/quickstart",
+  "permalink": "/docs/getting-started/quickstart",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/getting-started/quickstart.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3,
+    "title": "Quick Start",
+    "description": "Deploy Optimal Platform in 5 minutes"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Prerequisites",
+    "permalink": "/docs/getting-started/prerequisites"
+  },
+  "next": {
+    "title": "Architecture",
+    "permalink": "/docs/getting-started/architecture"
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "realm": "optimal",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "clients": [
+    {
+      "clientId": "optimal-portal",
+      "name": "Optimal Portal",
+      "description": "Optimal Platform Web Portal",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "optimal-portal-secret",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "https://*.vercel.app/*",
+        "https://*.optimal.com/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://*.vercel.app",
+        "https://*.optimal.com"
+      ],
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    },
+    {
+      "clientId": "optimal-api",
+      "name": "Optimal API Gateway",
+      "description": "Backend API service client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "optimal-api-secret-key-change-in-production",
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@optimal.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin", "user"],
+      "clientRoles": {
+        "optimal-portal": ["admin"]
+      }
+    },
+    {
+      "username": "security_analyst",
+      "email": "analyst@optimal.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Security",
+      "lastName": "Analyst",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "analyst123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"],
+      "clientRoles": {
+        "optimal-portal": ["analyst"]
+      }
+    },
+    {
+      "username": "developer",
+      "email": "dev@optimal.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Dev",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"],
+      "clientRoles": {
+        "optimal-portal": ["developer"]
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Platform Administrator"
+      },
+      {
+        "name": "user",
+        "description": "Regular User"
+      }
+    ],
+    "client": {
+      "optimal-portal": [
+        {
+          "name": "admin",
+          "description": "Portal Admin Role"
+        },
+        {
+          "name": "analyst",
+          "description": "Security Analyst Role"
+        },
+        {
+          "name": "developer",
+          "description": "Developer Role"
+        }
+      ]
+    }
+  },
+  "defaultRoles": ["user"],
+  "requiredCredentials": ["password"],
+  "passwordPolicy": "",
+  "smtpServer": {},
+  "loginTheme": "keycloak",
+  "accountTheme": "keycloak",
+  "adminTheme": "keycloak",
+  "emailTheme": "keycloak"
+}

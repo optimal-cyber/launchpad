@@ -1,0 +1,29 @@
+{
+  "id": "reference/security/overview",
+  "title": "Security Overview",
+  "description": "Security architecture and features of Optimal Platform",
+  "source": "@site/docs/reference/security/overview.md",
+  "sourceDirName": "reference/security",
+  "slug": "/reference/security/overview",
+  "permalink": "/docs/reference/security/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/reference/security/overview.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Security Overview",
+    "description": "Security architecture and features of Optimal Platform"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Reference Overview",
+    "permalink": "/docs/reference/overview"
+  },
+  "next": {
+    "title": "Kyverno Policies",
+    "permalink": "/docs/reference/security/kyverno-policies"
+  }
+}

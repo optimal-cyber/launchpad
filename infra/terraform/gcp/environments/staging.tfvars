@@ -27,3 +27,4 @@ cloud_sql_tier   = "db-custom-2-7680"
 # Redis - Standard tier
 enable_memorystore   = true
 redis_memory_size_gb = 2
+

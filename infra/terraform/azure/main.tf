@@ -527,3 +527,4 @@ resource "azurerm_application_insights" "main" {
 
   tags = local.tags
 }
+

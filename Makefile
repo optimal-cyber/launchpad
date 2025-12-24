@@ -305,6 +305,25 @@ helm-history: ## Show Helm release history
 
 ##@ Quick Deploy Commands
 
+.PHONY: deploy-local
+deploy-local: helm-deps ## Deploy to local Kind cluster
+	@echo "$(GREEN)Deploying to local Kind cluster...$(NC)"
+	@if ! kind get clusters | grep -q optimal-local; then \
+		echo "$(YELLOW)Creating Kind cluster...$(NC)"; \
+		kind create cluster --config k8s/local/kind-config.yaml; \
+	fi
+	kubectl config use-context kind-optimal-local
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		--namespace $(NAMESPACE) \
+		--create-namespace \
+		-f $(HELM_CHART)/values.yaml \
+		-f $(HELM_CHART)/values-development.yaml \
+		--set global.environment=development \
+		--wait --timeout 10m
+	@echo "$(GREEN)✅ Local deployment complete$(NC)"
+	@echo "$(YELLOW)Run 'make port-forward' to access services$(NC)"
+
 .PHONY: deploy-dev-aws
 deploy-dev-aws: ## Deploy development to AWS
 	ENV=development CLOUD=aws $(MAKE) deploy

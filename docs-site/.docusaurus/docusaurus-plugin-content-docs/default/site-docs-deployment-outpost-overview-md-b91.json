@@ -1,0 +1,29 @@
+{
+  "id": "deployment/outpost/overview",
+  "title": "Outpost Overview",
+  "description": "Airgap deployment with Optimal Outpost",
+  "source": "@site/docs/deployment/outpost/overview.md",
+  "sourceDirName": "deployment/outpost",
+  "slug": "/deployment/outpost/overview",
+  "permalink": "/docs/deployment/outpost/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/deployment/outpost/overview.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Outpost Overview",
+    "description": "Airgap deployment with Optimal Outpost"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Deployment Overview",
+    "permalink": "/docs/deployment/overview"
+  },
+  "next": {
+    "title": "Tutorials Overview",
+    "permalink": "/docs/tutorials/overview"
+  }
+}

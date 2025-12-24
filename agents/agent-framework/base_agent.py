@@ -6,6 +6,7 @@ Provides:
 - Environment detection and registration
 - Heartbeat and health reporting
 - Secure communication with platform API
+- OAuth 2.0 authentication with automatic token refresh
 - Configuration management
 - Logging and metrics
 """
@@ -19,6 +20,7 @@ import platform
 import signal
 import socket
 import sys
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
@@ -27,6 +29,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
+
+from .auth import OAuthConfig, OAuthTokenManager, create_token_manager
 
 # Configure logging
 logging.basicConfig(
@@ -80,7 +84,13 @@ class AgentConfig:
     """Agent configuration loaded from environment variables"""
     # Platform connection
     api_url: str = ""
-    api_token: str = ""
+    api_token: str = ""  # Legacy token (deprecated, use OAuth)
+
+    # OAuth 2.0 credentials
+    client_id: str = ""
+    client_secret: str = ""
+    token_endpoint: str = ""
+    use_oauth: bool = True  # Whether to use OAuth (vs legacy token)
 
     # Environment identification
     environment: str = "unknown"
@@ -113,9 +123,22 @@ class AgentConfig:
     @classmethod
     def from_env(cls) -> "AgentConfig":
         """Load configuration from environment variables"""
+        api_url = os.getenv("OPTIMAL_API_URL", os.getenv("API_GATEWAY_URL", "http://localhost:8000"))
+
+        # Check for OAuth credentials
+        client_id = os.getenv("OPTIMAL_CLIENT_ID", os.getenv("AGENT_CLIENT_ID", ""))
+        client_secret = os.getenv("OPTIMAL_CLIENT_SECRET", os.getenv("AGENT_CLIENT_SECRET", ""))
+
+        # Use OAuth if credentials are provided, otherwise fall back to legacy token
+        use_oauth = bool(client_id and client_secret)
+
         return cls(
-            api_url=os.getenv("OPTIMAL_API_URL", os.getenv("API_GATEWAY_URL", "http://localhost:8000")),
+            api_url=api_url,
             api_token=os.getenv("OPTIMAL_API_TOKEN", os.getenv("AGENT_TOKEN", "")),
+            client_id=client_id,
+            client_secret=client_secret,
+            token_endpoint=os.getenv("OPTIMAL_TOKEN_ENDPOINT", f"{api_url.rstrip('/')}/api/auth/agent/token"),
+            use_oauth=use_oauth,
             environment=os.getenv("OPTIMAL_ENVIRONMENT", os.getenv("ENVIRONMENT", "unknown")),
             cluster_name=os.getenv("OPTIMAL_CLUSTER", os.getenv("CLUSTER_NAME", "")),
             namespace=os.getenv("OPTIMAL_NAMESPACE", os.getenv("POD_NAMESPACE", "")),
@@ -132,6 +155,14 @@ class AgentConfig:
             auto_create_issues=os.getenv("OPTIMAL_AUTO_CREATE_ISSUES", "true").lower() == "true",
             issue_severity_threshold=os.getenv("OPTIMAL_ISSUE_SEVERITY_THRESHOLD", "high"),
             gitlab_project_id=int(os.getenv("GITLAB_PROJECT_ID", "0")),
+        )
+
+    def get_oauth_config(self) -> OAuthConfig:
+        """Get OAuth configuration for token manager"""
+        return OAuthConfig(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            token_endpoint=self.token_endpoint,
         )
 
 
@@ -201,6 +232,20 @@ class BaseAgent(ABC):
         self._session: Optional[aiohttp.ClientSession] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._main_task: Optional[asyncio.Task] = None
+
+        # OAuth token manager
+        self._token_manager: Optional[OAuthTokenManager] = None
+        self._current_token: Optional[str] = None
+        if self.config.use_oauth:
+            self._token_manager = OAuthTokenManager(
+                self.config.get_oauth_config(),
+                verify_ssl=self.config.verify_ssl
+            )
+            self.logger.info("OAuth authentication enabled")
+        elif self.config.api_token:
+            self.logger.info("Using legacy API token authentication")
+        else:
+            self.logger.warning("No authentication configured - agent may fail to communicate")
 
         # Setup signal handlers
         self._setup_signal_handlers()
@@ -342,9 +387,45 @@ class BaseAgent(ABC):
     # HTTP Session Management
     # =========================================================================
 
+    async def _get_auth_token(self) -> str:
+        """Get current authentication token (OAuth or legacy)"""
+        if self._token_manager:
+            # Use OAuth token manager
+            token = await self._token_manager.get_token()
+            if token:
+                self._current_token = token
+                return token
+            else:
+                self.logger.warning("Failed to get OAuth token")
+                return ""
+        else:
+            # Use legacy API token
+            return self.config.api_token
+
+    async def _refresh_session_token(self):
+        """Refresh the session's authorization header with a new token"""
+        if self._session and not self._session.closed:
+            token = await self._get_auth_token()
+            if token:
+                # aiohttp sessions don't allow header updates directly
+                # We need to recreate the session
+                await self._session.close()
+                self._session = None
+
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session"""
+        """Get or create HTTP session with current auth token"""
+        # Check if we need to refresh the token
+        if self._token_manager and self._token_manager._token:
+            if self._token_manager._token.should_refresh:
+                self.logger.debug("Token needs refresh, recreating session")
+                if self._session and not self._session.closed:
+                    await self._session.close()
+                self._session = None
+
         if self._session is None or self._session.closed:
+            # Get current auth token
+            token = await self._get_auth_token()
+
             connector = aiohttp.TCPConnector(
                 ssl=self.config.verify_ssl
             )
@@ -352,7 +433,7 @@ class BaseAgent(ABC):
             self._session = aiohttp.ClientSession(
                 connector=connector,
                 headers={
-                    "Authorization": f"Bearer {self.config.api_token}",
+                    "Authorization": f"Bearer {token}" if token else "",
                     "Content-Type": "application/json",
                     "X-Agent-ID": self.agent_id,
                     "X-Agent-Type": self.AGENT_TYPE,
@@ -371,18 +452,27 @@ class BaseAgent(ABC):
         data: Dict = None,
         retry: bool = True
     ) -> Optional[Dict[str, Any]]:
-        """Make an API request with retry logic"""
+        """Make an API request with retry logic and token refresh"""
         url = f"{self.config.api_url.rstrip('/')}{endpoint}"
-        session = await self._get_session()
+        token_refreshed = False
 
         for attempt in range(self.config.max_retries if retry else 1):
             try:
+                session = await self._get_session()
                 async with session.request(method, url, json=data) as resp:
                     if resp.status in [200, 201]:
                         return await resp.json()
                     elif resp.status == 401:
-                        self.logger.error("Authentication failed - check API token")
-                        return None
+                        # Token might be expired - try to refresh
+                        if self._token_manager and not token_refreshed:
+                            self.logger.info("Received 401, attempting token refresh...")
+                            await self._token_manager.invalidate()
+                            await self._refresh_session_token()
+                            token_refreshed = True
+                            continue  # Retry with new token
+                        else:
+                            self.logger.error("Authentication failed - check credentials")
+                            return None
                     elif resp.status >= 500:
                         self.logger.warning(f"Server error {resp.status}, attempt {attempt + 1}")
                     else:
@@ -569,9 +659,13 @@ class BaseAgent(ABC):
         if self._main_task:
             self._main_task.cancel()
 
-        # Close session
+        # Close sessions
         if self._session and not self._session.closed:
             await self._session.close()
+
+        # Close token manager session
+        if self._token_manager:
+            await self._token_manager.close()
 
         self.logger.info("Agent shutdown complete")
 

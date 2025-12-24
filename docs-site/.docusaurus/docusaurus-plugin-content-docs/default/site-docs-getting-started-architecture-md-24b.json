@@ -1,0 +1,29 @@
+{
+  "id": "getting-started/architecture",
+  "title": "Architecture",
+  "description": "Deep dive into Optimal Platform architecture",
+  "source": "@site/docs/getting-started/architecture.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/architecture",
+  "permalink": "/docs/getting-started/architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/getting-started/architecture.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "title": "Architecture",
+    "description": "Deep dive into Optimal Platform architecture"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Quick Start",
+    "permalink": "/docs/getting-started/quickstart"
+  },
+  "next": {
+    "title": "Reference Overview",
+    "permalink": "/docs/reference/overview"
+  }
+}

@@ -196,3 +196,4 @@ output "docker_login_command" {
   description = "Command to login to Azure Container Registry"
   value       = "az acr login --name ${azurerm_container_registry.main.name}"
 }
+

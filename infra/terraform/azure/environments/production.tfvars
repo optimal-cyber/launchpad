@@ -32,3 +32,4 @@ redis_capacity = 2
 
 # Geo-replication for high availability
 acr_geo_replications = ["westus2"]
+

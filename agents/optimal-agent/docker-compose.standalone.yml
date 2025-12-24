@@ -1,0 +1,105 @@
+# Optimal Security Agent - Standalone Docker Compose
+# For deployment on Docker hosts, VMs, and bare-metal servers
+#
+# Usage:
+#   1. Copy this file and create a .env file with your credentials
+#   2. Run: docker-compose -f docker-compose.standalone.yml up -d
+#
+# Required environment variables:
+#   OPTIMAL_CLIENT_ID     - OAuth client ID from platform
+#   OPTIMAL_CLIENT_SECRET - OAuth client secret from platform
+#   OPTIMAL_API_URL       - Platform API URL (default: https://api.gooptimal.io)
+
+version: '3.8'
+
+services:
+  optimal-agent:
+    image: ghcr.io/optimal-platform/optimal-agent:latest
+    container_name: optimal-agent
+    restart: unless-stopped
+
+    # Mount Docker socket for container scanning
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - optimal-data:/var/lib/optimal
+      - /:/host:ro  # Read-only host filesystem for scanning
+
+    environment:
+      # Platform connection
+      - OPTIMAL_API_URL=${OPTIMAL_API_URL:-https://api.gooptimal.io}
+
+      # OAuth credentials (REQUIRED)
+      - OPTIMAL_CLIENT_ID=${OPTIMAL_CLIENT_ID}
+      - OPTIMAL_CLIENT_SECRET=${OPTIMAL_CLIENT_SECRET}
+
+      # Agent identification
+      - OPTIMAL_AGENT_NAME=${OPTIMAL_AGENT_NAME:-}
+      - OPTIMAL_ENVIRONMENT=${OPTIMAL_ENVIRONMENT:-production}
+      - OPTIMAL_ORG_ID=${OPTIMAL_ORG_ID:-default}
+
+      # Scan settings
+      - OPTIMAL_HEARTBEAT_INTERVAL=${OPTIMAL_HEARTBEAT_INTERVAL:-60}
+      - OPTIMAL_SCAN_INTERVAL=${OPTIMAL_SCAN_INTERVAL:-300}
+
+      # Features
+      - OPTIMAL_VULN_SCANNING=${OPTIMAL_VULN_SCANNING:-true}
+      - OPTIMAL_SBOM_GENERATION=${OPTIMAL_SBOM_GENERATION:-true}
+      - OPTIMAL_RUNTIME_SECURITY=${OPTIMAL_RUNTIME_SECURITY:-true}
+
+      # Offline support
+      - OPTIMAL_OFFLINE_QUEUE_ENABLED=${OPTIMAL_OFFLINE_QUEUE_ENABLED:-true}
+
+      # SSL verification (disable for self-signed certs)
+      - OPTIMAL_VERIFY_SSL=${OPTIMAL_VERIFY_SSL:-true}
+
+      # Logging
+      - OPTIMAL_LOG_LEVEL=${OPTIMAL_LOG_LEVEL:-INFO}
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Network
+    networks:
+      - optimal-network
+
+    # Ports (optional - for local metrics access)
+    ports:
+      - "8080:8080"
+
+volumes:
+  optimal-data:
+    driver: local
+
+networks:
+  optimal-network:
+    driver: bridge
+
+# Example .env file content:
+# --------------------------------
+# OPTIMAL_CLIENT_ID=agent_abc123def456...
+# OPTIMAL_CLIENT_SECRET=your-client-secret-here
+# OPTIMAL_API_URL=https://api.gooptimal.io
+# OPTIMAL_ENVIRONMENT=production
+# OPTIMAL_ORG_ID=your-org-id

@@ -1,0 +1,29 @@
+{
+  "id": "tutorials/overview",
+  "title": "Tutorials Overview",
+  "description": "Step-by-step tutorials for Optimal Platform",
+  "source": "@site/docs/tutorials/overview.md",
+  "sourceDirName": "tutorials",
+  "slug": "/tutorials/overview",
+  "permalink": "/docs/tutorials/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/tutorials/overview.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Tutorials Overview",
+    "description": "Step-by-step tutorials for Optimal Platform"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Outpost Overview",
+    "permalink": "/docs/deployment/outpost/overview"
+  },
+  "next": {
+    "title": "Common Issues",
+    "permalink": "/docs/troubleshooting/common-issues"
+  }
+}

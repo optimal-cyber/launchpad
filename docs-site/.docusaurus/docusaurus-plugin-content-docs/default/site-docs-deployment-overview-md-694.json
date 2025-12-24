@@ -1,0 +1,29 @@
+{
+  "id": "deployment/overview",
+  "title": "Deployment Overview",
+  "description": "Deployment options for Optimal Platform",
+  "source": "@site/docs/deployment/overview.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/overview",
+  "permalink": "/docs/deployment/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/docs/deployment/overview.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Deployment Overview",
+    "description": "Deployment options for Optimal Platform"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Kyverno Policies",
+    "permalink": "/docs/reference/security/kyverno-policies"
+  },
+  "next": {
+    "title": "Outpost Overview",
+    "permalink": "/docs/deployment/outpost/overview"
+  }
+}

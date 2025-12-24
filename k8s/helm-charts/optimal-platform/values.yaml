@@ -466,6 +466,175 @@ podDisruptionBudgets:
   enabled: true
   minAvailable: 1
 
+# -----------------------------------------------------------------------------
+# Loki - Centralized Logging
+# -----------------------------------------------------------------------------
+loki:
+  enabled: true
+  namespace: logging
+  replicas: 1
+
+  image:
+    repository: grafana/loki
+    tag: "2.9.0"
+    pullPolicy: IfNotPresent
+
+  persistence:
+    size: 10Gi
+    storageClass: ""
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  promtail:
+    image:
+      repository: grafana/promtail
+      tag: "2.9.0"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# -----------------------------------------------------------------------------
+# Velero - Backup and Disaster Recovery
+# -----------------------------------------------------------------------------
+velero:
+  enabled: true
+  namespace: velero
+
+  image:
+    repository: velero/velero
+    tag: "v1.12.0"
+    pullPolicy: IfNotPresent
+
+  # Cloud provider: aws, gcp, azure
+  provider: ""
+
+  # Credentials for cloud provider (base64 encoded)
+  credentials: ""
+
+  # Initialize plugin containers
+  initContainers: true
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Backup storage location configuration
+  backupStorageLocation:
+    bucket: ""
+    prefix: "optimal-backups"
+    config: {}
+    # AWS example:
+    #   region: us-east-1
+    # GCP example:
+    #   project: your-project-id
+    # Azure example:
+    #   resourceGroup: your-resource-group
+    #   storageAccount: your-storage-account
+
+  # Volume snapshot location configuration
+  volumeSnapshotLocation:
+    config: {}
+    # AWS example:
+    #   region: us-east-1
+    # GCP example:
+    #   project: your-project-id
+    # Azure example:
+    #   resourceGroup: your-resource-group
+
+  # Scheduled backups
+  schedules:
+    daily-backup:
+      schedule: "0 2 * * *"  # 2 AM daily
+      includedNamespaces:
+        - optimal-system
+        - keycloak
+      ttl: 168h  # 7 days
+    weekly-full:
+      schedule: "0 3 * * 0"  # 3 AM Sunday
+      includedNamespaces:
+        - optimal-system
+        - keycloak
+        - monitoring
+        - logging
+      ttl: 720h  # 30 days
+
+# -----------------------------------------------------------------------------
+# Kyverno Policies - Security & Compliance
+# -----------------------------------------------------------------------------
+kyvernoPolicies:
+  enabled: true
+
+  # Validation failure action: Audit (report only) or Enforce (block)
+  validationFailureAction: Audit
+
+  # Namespaces to exclude from policies
+  excludeNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - kyverno
+    - falco
+    - ingress-nginx
+    - cert-manager
+
+  # Allowed image registries
+  allowedRegistries:
+    - "ghcr.io/*"
+    - "docker.io/*"
+    - "quay.io/*"
+    - "registry.k8s.io/*"
+    - "gcr.io/*"
+    - "grafana/*"
+    - "prom/*"
+    - "falcosecurity/*"
+    - "velero/*"
+    - "bitnami/*"
+
+# -----------------------------------------------------------------------------
+# Outpost - Airgap Packaging Configuration
+# -----------------------------------------------------------------------------
+outpost:
+  enabled: false
+
+  # Images to include in airgap bundle
+  images:
+    - "ghcr.io/optimal-platform/portal:{{ .Values.portal.image.tag }}"
+    - "ghcr.io/optimal-platform/api-gateway:{{ .Values.apiGateway.image.tag }}"
+    - "quay.io/keycloak/keycloak:23.0"
+    - "docker.io/bitnami/postgresql:15"
+    - "docker.io/bitnami/redis:7.2"
+    - "grafana/grafana:10.2.0"
+    - "grafana/loki:2.9.0"
+    - "grafana/promtail:2.9.0"
+    - "prom/prometheus:v2.47.0"
+    - "prom/alertmanager:v0.26.0"
+    - "velero/velero:v1.12.0"
+    - "ghcr.io/kyverno/kyverno:v1.11.0"
+    - "falcosecurity/falco:0.36.0"
+
+  # SBOM generation
+  sbom:
+    enabled: true
+    format: spdx-json  # or cyclonedx-json
+
+  # Bundle compression
+  compression: gzip  # gzip, zstd, or xz
+
+
 
 
 

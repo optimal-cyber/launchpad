@@ -10,8 +10,9 @@ import {
   FileText, Activity, Zap,
   Lock, HelpCircle,
   Radio, Layers, Target,
-  Rocket, Brain
+  Rocket, Brain, Database, Box
 } from 'lucide-react';
+import ClassificationBanner, { ClassificationFooterBanner, type ClassificationLevel } from './ClassificationBanner';
 
 interface EnterpriseLayoutProps {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ interface EnterpriseLayoutProps {
 const mainNavItems = [
   { name: 'Launch Pad', href: '/launchpad', icon: Rocket },
   { name: 'Command Center', href: '/command-center', icon: Target },
+  { name: 'Registry', href: '/registry', icon: Box },
   { name: 'Hub', href: '/hub', icon: Layers },
   { name: 'Vulnerabilities', href: '/vulnerabilities', icon: AlertTriangle, badge: 275 },
   { name: 'SBOM', href: '/sbom', icon: Package, badge: 1243 },
@@ -39,6 +41,7 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [classificationLevel, setClassificationLevel] = useState<ClassificationLevel>('UNCLASSIFIED');
 
   // Update time every second
   useEffect(() => {
@@ -64,7 +67,14 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)]">
+    <div className="min-h-screen bg-[var(--bg-base)] flex flex-col">
+      {/* Classification Banner - Top */}
+      <ClassificationBanner
+        level={classificationLevel}
+        showSelector={true}
+        onLevelChange={setClassificationLevel}
+      />
+
       {/* Top Bar */}
       <header className="enterprise-topbar">
         <div className="flex items-center gap-6">
@@ -197,10 +207,13 @@ export default function EnterpriseLayout({ children }: EnterpriseLayoutProps) {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-1 min-h-[calc(100vh-48px)] overflow-auto">
+        <main className="flex-1 min-h-[calc(100vh-72px)] overflow-auto">
           {children}
         </main>
       </div>
+
+      {/* Classification Banner - Bottom */}
+      <ClassificationFooterBanner level={classificationLevel} />
 
       {/* Command Palette Modal */}
       {isCommandPaletteOpen && (

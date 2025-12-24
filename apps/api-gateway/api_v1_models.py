@@ -43,6 +43,10 @@ class TaskType(str, Enum):
     GENERATE_POAM = "generate_poam"
     ANALYZE_SBOM = "analyze_sbom"
     COMPLIANCE_CHECK = "compliance_check"
+    # AI Security task types
+    AI_MODEL_ASSESSMENT = "ai_model_assessment"
+    AI_MODEL_DISCOVERY = "ai_model_discovery"
+    AI_RED_TEAM = "ai_red_team"
 
 
 class TaskStatus(str, Enum):
@@ -266,4 +270,274 @@ class AgentRunDetail(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     progress_percent: int = Field(0, ge=0, le=100)
+
+
+# ============================================================================
+# AI Security Models
+# ============================================================================
+
+class AIModelSource(str, Enum):
+    """AI Model source types"""
+    HUGGINGFACE = "huggingface"
+    LOCAL = "local"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    OLLAMA = "ollama"
+    AZURE = "azure"
+    AWS = "aws"
+
+
+class AIRiskLevel(str, Enum):
+    """AI Model risk assessment levels"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+    UNKNOWN = "unknown"
+
+
+class AssessmentStatus(str, Enum):
+    """AI Assessment status"""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AISVSCategory(str, Enum):
+    """OWASP AISVS control categories"""
+    DATA_SECURITY = "data_security"
+    MODEL_SECURITY = "model_security"
+    INPUT_VALIDATION = "input_validation"
+    OUTPUT_SECURITY = "output_security"
+    ACCESS_CONTROL = "access_control"
+    MODEL_EXPLAINABILITY = "model_explainability"
+    PRIVACY_PROTECTION = "privacy_protection"
+    ADVERSARIAL_ROBUSTNESS = "adversarial_robustness"
+    MONITORING_LOGGING = "monitoring_logging"
+    COMPLIANCE_GOVERNANCE = "compliance_governance"
+
+
+class NISTAIRMFPillar(str, Enum):
+    """NIST AI RMF pillars"""
+    GOVERN = "govern"
+    MAP = "map"
+    MEASURE = "measure"
+    MANAGE = "manage"
+
+
+class ATLASThreatCategory(str, Enum):
+    """MITRE ATLAS threat categories"""
+    RECONNAISSANCE = "reconnaissance"
+    RESOURCE_DEVELOPMENT = "resource_development"
+    INITIAL_ACCESS = "initial_access"
+    ML_ATTACK_STAGING = "ml_attack_staging"
+    MODEL_ACCESS = "model_access"
+    EXFILTRATION = "exfiltration"
+    IMPACT = "impact"
+
+
+class RedTeamTestType(str, Enum):
+    """Red team test types"""
+    PROMPT_INJECTION = "prompt_injection"
+    JAILBREAK = "jailbreak"
+    ADVERSARIAL = "adversarial"
+    PRIVACY_LEAKAGE = "privacy_leakage"
+    MODEL_EXTRACTION = "model_extraction"
+    BIAS_DETECTION = "bias_detection"
+    HALLUCINATION = "hallucination"
+
+
+class AIModel(BaseModel):
+    """AI Model representation"""
+    id: str = Field(..., description="Unique model identifier")
+    name: str = Field(..., description="Model name")
+    source: AIModelSource
+    model_type: str = Field(default="unknown", description="Model type (text-generation, classification, etc.)")
+    version: str = Field(default="1.0")
+    framework: str = Field(default="unknown")
+    endpoint: Optional[str] = Field(None, description="API endpoint URL")
+    huggingface_id: Optional[str] = Field(None, description="HuggingFace model ID")
+    author: Optional[str] = None
+    license: Optional[str] = None
+    downloads: Optional[int] = Field(None, ge=0)
+    tags: List[str] = Field(default_factory=list)
+    overall_score: int = Field(default=0, ge=0, le=100)
+    risk_level: AIRiskLevel = Field(default=AIRiskLevel.UNKNOWN)
+    last_assessed: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AIModelListResponse(BaseModel):
+    """List of AI models"""
+    models: List[AIModel]
+    total: int
+    page: int = Field(default=1)
+    page_size: int = Field(default=20)
+
+
+class AISVSScore(BaseModel):
+    """OWASP AISVS score for a category"""
+    category: AISVSCategory
+    category_name: str
+    score: int = Field(..., ge=0, le=10)
+    max_score: int = Field(default=10)
+    percentage: int = Field(..., ge=0, le=100)
+    status: str = Field(default="unknown")
+    details: str
+    controls_met: List[str] = Field(default_factory=list)
+    controls_failed: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+
+
+class NISTSubcategory(BaseModel):
+    """NIST AI RMF subcategory"""
+    id: str
+    name: str
+    description: str
+    score: int = Field(..., ge=0, le=100)
+    status: str = Field(default="not_implemented")
+
+
+class NISTAIRMFScore(BaseModel):
+    """NIST AI RMF pillar score"""
+    pillar: NISTAIRMFPillar
+    pillar_name: str
+    score: int = Field(..., ge=0, le=100)
+    status: str = Field(default="unknown")
+    details: str
+    subcategories: List[NISTSubcategory] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+
+
+class ATLASThreat(BaseModel):
+    """MITRE ATLAS threat"""
+    threat_id: str = Field(..., description="ATLAS threat ID (e.g., AML.T0001)")
+    threat_name: str
+    category: ATLASThreatCategory
+    description: str
+    mitigated: bool = False
+    severity: SeverityLevel
+    mitigation_notes: Optional[str] = None
+
+
+class RedTeamTest(BaseModel):
+    """Red team test result"""
+    id: str
+    test_type: RedTeamTestType
+    test_name: str
+    description: str
+    payload: str
+    expected_behavior: str
+    actual_behavior: Optional[str] = None
+    passed: bool
+    severity: SeverityLevel
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    duration: Optional[int] = Field(None, description="Duration in milliseconds")
+    notes: Optional[str] = None
+
+
+class RedTeamConfig(BaseModel):
+    """Red team testing configuration"""
+    enabled: bool = False
+    test_categories: List[RedTeamTestType] = Field(default_factory=list)
+    max_tests_per_category: int = Field(default=5, ge=1, le=20)
+    timeout: int = Field(default=30, ge=5, le=120)
+
+
+class AssessmentConfig(BaseModel):
+    """AI Assessment configuration"""
+    include_aisvs: bool = True
+    include_nist_rmf: bool = True
+    include_atlas: bool = True
+    include_red_team: bool = False
+    red_team_config: Optional[RedTeamConfig] = None
+    custom_endpoint: Optional[str] = None
+    timeout: Optional[int] = None
+
+
+class AssessmentFinding(BaseModel):
+    """Assessment finding"""
+    id: str
+    type: str = Field(..., description="vulnerability, misconfiguration, compliance_gap, risk")
+    severity: SeverityLevel
+    title: str
+    description: str
+    framework: str = Field(..., description="AISVS, NIST_AI_RMF, ATLAS, RED_TEAM")
+    category: Optional[str] = None
+    remediation: str
+    references: List[str] = Field(default_factory=list)
+    status: str = Field(default="open")
+
+
+class AIAssessmentRequest(BaseModel):
+    """Request to create an AI assessment"""
+    model_id: str
+    model_source: Optional[AIModelSource] = None
+    model_name: Optional[str] = None
+    endpoint: Optional[str] = None
+    config: AssessmentConfig = Field(default_factory=AssessmentConfig)
+
+
+class AIAssessmentResult(BaseModel):
+    """AI Assessment result"""
+    assessment_id: str
+    model_id: str
+    model_name: str
+    model_source: Optional[AIModelSource] = None
+    status: AssessmentStatus
+    progress: int = Field(0, ge=0, le=100)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    duration: Optional[int] = Field(None, description="Duration in milliseconds")
+    overall_score: int = Field(0, ge=0, le=100)
+    risk_level: AIRiskLevel
+    aisvs_scores: List[AISVSScore] = Field(default_factory=list)
+    nist_scores: List[NISTAIRMFScore] = Field(default_factory=list)
+    atlas_threats: List[ATLASThreat] = Field(default_factory=list)
+    red_team_results: Optional[List[RedTeamTest]] = None
+    recommendations: List[str] = Field(default_factory=list)
+    findings: List[AssessmentFinding] = Field(default_factory=list)
+
+
+class AIAssessmentListResponse(BaseModel):
+    """List of AI assessments"""
+    assessments: List[AIAssessmentResult]
+    total: int
+    page: int = Field(default=1)
+    page_size: int = Field(default=20)
+
+
+class ModelDiscoveryRequest(BaseModel):
+    """Request to discover AI models"""
+    source: AIModelSource
+    query: Optional[str] = None
+    organization: Optional[str] = None
+    local_endpoints: Optional[List[str]] = None
+    filters: Optional[Dict[str, Any]] = None
+
+
+class ModelDiscoveryResponse(BaseModel):
+    """AI model discovery results"""
+    source: AIModelSource
+    models: List[AIModel]
+    total: int
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class HuggingFaceModelInfo(BaseModel):
+    """HuggingFace model information"""
+    model_id: str
+    author: str
+    sha: Optional[str] = None
+    last_modified: Optional[datetime] = None
+    private: bool = False
+    downloads: int = Field(0, ge=0)
+    likes: int = Field(0, ge=0)
+    tags: List[str] = Field(default_factory=list)
+    pipeline_tag: Optional[str] = None
+    library: Optional[str] = None
+    license: Optional[str] = None
+    model_card: Optional[str] = None
+    security_scan: Optional[Dict[str, Any]] = None
+
 

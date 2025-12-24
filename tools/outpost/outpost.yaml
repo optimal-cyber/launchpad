@@ -1,0 +1,153 @@
+# =============================================================================
+# Outpost Package Configuration
+# Optimal Platform Airgap Deployment
+# =============================================================================
+
+apiVersion: outpost.gooptimal.io/v1
+kind: OutpostPackage
+metadata:
+  name: optimal-platform
+  version: 1.0.0
+  description: "Optimal Platform - Enterprise DevSecOps Platform for Airgap Environments"
+
+spec:
+  # ---------------------------------------------------------------------------
+  # Container Images
+  # All images required for offline deployment
+  # ---------------------------------------------------------------------------
+  images:
+    # Core Platform
+    - name: optimal-portal
+      image: ghcr.io/optimal-platform/portal:latest
+
+    - name: optimal-api-gateway
+      image: ghcr.io/optimal-platform/api-gateway:latest
+
+    - name: optimal-sbom-service
+      image: ghcr.io/optimal-platform/sbom-service:latest
+
+    - name: optimal-vuln-service
+      image: ghcr.io/optimal-platform/vuln-service:latest
+
+    - name: optimal-worker
+      image: ghcr.io/optimal-platform/worker:latest
+
+    # Identity & Access Management
+    - name: keycloak
+      image: quay.io/keycloak/keycloak:23.0
+
+    # Data Layer
+    - name: postgresql
+      image: docker.io/bitnami/postgresql:15
+
+    - name: redis
+      image: docker.io/bitnami/redis:7.2
+
+    # Observability
+    - name: grafana
+      image: grafana/grafana:10.2.0
+
+    - name: loki
+      image: grafana/loki:2.9.0
+
+    - name: promtail
+      image: grafana/promtail:2.9.0
+
+    - name: prometheus
+      image: prom/prometheus:v2.47.0
+
+    - name: alertmanager
+      image: prom/alertmanager:v0.26.0
+
+    # Backup & Restore
+    - name: velero
+      image: velero/velero:v1.12.0
+
+    - name: velero-plugin-aws
+      image: velero/velero-plugin-for-aws:v1.8.0
+
+    - name: velero-plugin-gcp
+      image: velero/velero-plugin-for-gcp:v1.8.0
+
+    # Policy & Security
+    - name: kyverno
+      image: ghcr.io/kyverno/kyverno:v1.11.0
+
+    - name: kyverno-background-controller
+      image: ghcr.io/kyverno/background-controller:v1.11.0
+
+    - name: kyverno-reports-controller
+      image: ghcr.io/kyverno/reports-controller:v1.11.0
+
+    - name: kyverno-cleanup-controller
+      image: ghcr.io/kyverno/cleanup-controller:v1.11.0
+
+    - name: falco
+      image: falcosecurity/falco:0.36.0
+
+    - name: falcosidekick
+      image: falcosecurity/falcosidekick:2.28.0
+
+    # Ingress
+    - name: nginx-ingress-controller
+      image: registry.k8s.io/ingress-nginx/controller:v1.9.4
+
+    - name: nginx-ingress-kube-webhook-certgen
+      image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20231011-8b53cabe0
+
+  # ---------------------------------------------------------------------------
+  # Helm Charts
+  # ---------------------------------------------------------------------------
+  charts:
+    - name: optimal-platform
+      path: ./k8s/helm-charts/optimal-platform
+      version: 1.0.0
+
+    - name: optimal-agent
+      path: ./k8s/helm-charts/optimal-agent
+      version: 1.0.0
+
+  # ---------------------------------------------------------------------------
+  # Kubernetes Manifests
+  # Additional manifests for bootstrap
+  # ---------------------------------------------------------------------------
+  manifests:
+    - path: ./k8s/manifests/namespaces.yaml
+    - path: ./k8s/manifests/storage-classes.yaml
+    - path: ./k8s/manifests/network-policies.yaml
+
+  # ---------------------------------------------------------------------------
+  # SBOM Generation
+  # Automatic Software Bill of Materials
+  # ---------------------------------------------------------------------------
+  sbom:
+    enabled: true
+    format: spdx-json  # spdx-json, cyclonedx-json
+    outputPath: ./sbom/
+
+  # ---------------------------------------------------------------------------
+  # Image Signing
+  # Sign images with cosign for verification
+  # ---------------------------------------------------------------------------
+  signing:
+    enabled: false
+    keyPath: ""
+
+  # ---------------------------------------------------------------------------
+  # Bundle Configuration
+  # ---------------------------------------------------------------------------
+  bundle:
+    compression: gzip  # gzip, zstd, xz
+    checksums: true
+
+  # ---------------------------------------------------------------------------
+  # Registry Configuration
+  # Target registry for airgap deployment
+  # ---------------------------------------------------------------------------
+  registry:
+    # Default to local registry
+    url: "registry.local:5000"
+    insecure: true
+    # Credentials (if required)
+    username: ""
+    password: ""
