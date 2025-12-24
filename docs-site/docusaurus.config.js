@@ -3,15 +3,15 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Optimal Launchpad',
+  title: 'Optimal Platform Docs',
   tagline: 'Secure Software Delivery Platform',
   favicon: 'img/favicon.ico',
 
-  url: 'https://launchpad.gooptimal.io',
+  url: 'https://docs.gooptimal.io',
   baseUrl: '/',
 
-  organizationName: 'optimal-platform',
-  projectName: 'optimal-platform',
+  organizationName: 'optimal-cyber',
+  projectName: 'launchpad',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -28,7 +28,7 @@ const config = {
       ({
         docs: {
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/optimal-platform/optimal-platform/tree/main/docs-site/',
+          editUrl: 'https://github.com/optimal-cyber/launchpad/tree/main/docs-site/',
         },
         blog: false,
         theme: {
@@ -43,7 +43,7 @@ const config = {
     ({
       image: 'img/optimal-social-card.png',
       navbar: {
-        title: 'Optimal Launchpad',
+        title: 'Optimal Platform Docs',
         logo: {
           alt: 'Optimal Logo',
           src: 'img/logo.svg',
@@ -71,7 +71,7 @@ const config = {
             position: 'left',
           },
           {
-            href: 'https://github.com/optimal-platform/optimal-platform',
+            href: 'https://github.com/optimal-cyber/launchpad',
             label: 'GitHub',
             position: 'right',
           },
@@ -136,7 +136,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/optimal-platform/optimal-platform',
+                href: 'https://github.com/optimal-cyber/launchpad',
               },
               {
                 label: 'Support',

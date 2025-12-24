@@ -191,7 +191,7 @@ If you can't resolve an issue:
    kubectl describe pods -n optimal-system > pods.txt
    ```
 
-2. **Check documentation**: https://launchpad.gooptimal.io
+2. **Check documentation**: https://docs.gooptimal.io
 
 3. **Open an issue**: https://github.com/optimal-platform/optimal-platform/issues
 

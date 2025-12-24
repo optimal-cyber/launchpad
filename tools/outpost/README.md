@@ -261,6 +261,6 @@ curl https://registry.local:5000/v2/_catalog
 
 ## Support
 
-- Documentation: https://launchpad.gooptimal.io/docs/deployment/outpost
+- Documentation: https://docs.gooptimal.io/docs/deployment/outpost
 - Issues: https://github.com/optimal-platform/optimal-platform/issues
 - Email: support@gooptimal.io

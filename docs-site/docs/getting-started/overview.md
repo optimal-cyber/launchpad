@@ -104,6 +104,6 @@ Optimal Platform is a collection of integrated applications combined into Kubern
 
 ## Support
 
-- **Documentation**: https://launchpad.gooptimal.io
+- **Documentation**: https://docs.gooptimal.io
 - **GitHub Issues**: https://github.com/optimal-platform/optimal-platform/issues
 - **Email**: support@gooptimal.io

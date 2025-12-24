@@ -1,4 +1,4 @@
-# Quick Deploy to Vercel (launchpad.gooptimal.io)
+# Quick Deploy to Vercel (docs.gooptimal.io)
 
 Deploy your Optimal Platform portal in under 10 minutes with a custom domain.
 
@@ -56,7 +56,7 @@ vercel --prod
 ### In Vercel Dashboard:
 
 1. Go to your project → **Settings** → **Domains**
-2. Add your domain: `launchpad.gooptimal.io`
+2. Add your domain: `docs.gooptimal.io`
 3. Vercel will show you DNS records to add
 
 ### In Your DNS Provider (Cloudflare/Route53):
@@ -82,7 +82,7 @@ In Vercel Dashboard → **Settings** → **Environment Variables**:
 | Variable | Value |
 |----------|-------|
 | `NEXT_PUBLIC_API_BASE` | `https://api.gooptimal.io` |
-| `NEXT_PUBLIC_SITE_URL` | `https://launchpad.gooptimal.io` |
+| `NEXT_PUBLIC_SITE_URL` | `https://docs.gooptimal.io` |
 
 ---
 
@@ -90,7 +90,7 @@ In Vercel Dashboard → **Settings** → **Environment Variables**:
 
 After DNS propagates (usually 1-5 minutes):
 
-1. Visit `https://launchpad.gooptimal.io`
+1. Visit `https://docs.gooptimal.io`
 2. You should see the Optimal Platform landing page
 3. Test the "Try Demo" and "Get Started" buttons
 
@@ -102,7 +102,7 @@ You can set up multiple subdomains pointing to the same Vercel deployment:
 
 | Subdomain | Purpose |
 |-----------|---------|
-| `launchpad.gooptimal.io` | Main portal |
+| `docs.gooptimal.io` | Main portal |
 | `app.gooptimal.io` | Alternative URL |
 | `demo.gooptimal.io` | Demo environment |
 
@@ -139,7 +139,7 @@ vercel --prod --force
 
 ## Next Steps
 
-1. Share `https://launchpad.gooptimal.io` with potential clients
+1. Share `https://docs.gooptimal.io` with potential clients
 2. Monitor usage in Vercel Analytics
 3. When ready, migrate to AWS/GCP using the enterprise deployment guide
 

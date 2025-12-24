@@ -417,7 +417,7 @@ func newVersionCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Outpost version %s\n", version)
 			fmt.Println("Optimal Platform Airgap Deployment Tool")
-			fmt.Println("https://launchpad.gooptimal.io")
+			fmt.Println("https://docs.gooptimal.io")
 		},
 	}
 
