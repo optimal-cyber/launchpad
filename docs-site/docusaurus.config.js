@@ -5,7 +5,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 const config = {
   title: 'Optimal Platform Docs',
   tagline: 'Secure Software Delivery Platform',
-  favicon: 'img/favicon.svg',
+  favicon: 'img/logo.png',
 
   url: 'https://docs.gooptimal.io',
   baseUrl: '/',
@@ -43,10 +43,10 @@ const config = {
     ({
       image: 'img/optimal-social-card.png',
       navbar: {
-        title: 'Optimal Platform Docs',
+        title: 'Optimal',
         logo: {
-          alt: 'Optimal Logo',
-          src: 'img/logo.svg',
+          alt: 'Optimal',
+          src: 'img/logo.png',
         },
         items: [
           {
