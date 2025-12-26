@@ -23,10 +23,13 @@ Deploy to a local Kind cluster for development and testing.
 
 ```bash
 # Create cluster
-kind create cluster --name optimal-local --config k8s/kind-config.yaml
+kind create cluster --name optimal-local --config k8s/local/kind-config.yaml
 
 # Deploy platform
-make deploy-local
+helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
+  --namespace optimal-system \
+  --create-namespace \
+  -f k8s/helm-charts/optimal-platform/values-development.yaml
 
 # Access at http://localhost:3000
 ```
@@ -36,7 +39,7 @@ make deploy-local
 - 8GB RAM minimum
 - 20GB disk space
 
-See the [Quick Start Guide](/docs/getting-started/quickstart) for details.
+See [Local Development](./local) for complete guide.
 
 ## Cloud Deployment
 
@@ -48,7 +51,9 @@ cd infra/terraform/aws
 terraform init && terraform apply
 
 # Deploy platform
-make deploy-prod-aws
+helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
+  --namespace optimal-system \
+  -f k8s/helm-charts/optimal-platform/values-production.yaml
 ```
 
 **Features:**
@@ -58,7 +63,7 @@ make deploy-prod-aws
 - S3 storage
 - Route53 DNS
 
-See the [Quick Start Guide](/docs/getting-started/quickstart) for AWS setup details.
+See [AWS Deployment](./cloud/aws) for complete guide.
 
 ### GCP (GKE)
 
@@ -68,7 +73,9 @@ cd infra/terraform/gcp
 terraform init && terraform apply
 
 # Deploy platform
-make deploy-prod-gcp
+helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
+  --namespace optimal-system \
+  -f k8s/helm-charts/optimal-platform/values-production.yaml
 ```
 
 **Features:**
@@ -78,7 +85,7 @@ make deploy-prod-gcp
 - Cloud Storage
 - Cloud DNS
 
-See the [Quick Start Guide](/docs/getting-started/quickstart) for GCP setup details.
+See [GCP Deployment](./cloud/gcp) for complete guide.
 
 ### Azure (AKS)
 
@@ -88,7 +95,9 @@ cd infra/terraform/azure
 terraform init && terraform apply
 
 # Deploy platform
-make deploy-prod-azure
+helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
+  --namespace optimal-system \
+  -f k8s/helm-charts/optimal-platform/values-production.yaml
 ```
 
 **Features:**
@@ -98,11 +107,11 @@ make deploy-prod-azure
 - Blob Storage
 - Azure DNS
 
-See the [Quick Start Guide](/docs/getting-started/quickstart) for Azure setup details.
+See [Azure Deployment](./cloud/azure) for complete guide.
 
 ## On-Premise
 
-Deploy to your own Kubernetes cluster.
+Deploy to your own Kubernetes cluster with full control.
 
 **Requirements:**
 - Kubernetes 1.27+
@@ -121,7 +130,7 @@ helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
   -f values-production.yaml
 ```
 
-Contact support for on-premise deployment assistance.
+See [On-Premise Deployment](./on-premise) for complete guide.
 
 ## Airgap (Outpost)
 
@@ -146,7 +155,7 @@ outpost deploy init --bundle optimal-v1.0.0.tar.gz
 outpost deploy run --bundle optimal-v1.0.0.tar.gz
 ```
 
-See [Outpost Overview](./outpost/overview) for details.
+See [Outpost Overview](./outpost/overview) for complete guide.
 
 ## Architecture Comparison
 
@@ -208,5 +217,9 @@ See [Outpost Overview](./outpost/overview) for details.
 
 Choose your deployment path:
 
-- [Quick Start Guide](/docs/getting-started/quickstart) - Start developing locally or deploy to cloud
+- [Local Development](./local) - Start developing locally
+- [AWS Deployment](./cloud/aws) - Deploy to Amazon Web Services
+- [GCP Deployment](./cloud/gcp) - Deploy to Google Cloud Platform
+- [Azure Deployment](./cloud/azure) - Deploy to Microsoft Azure
+- [On-Premise](./on-premise) - Deploy to your infrastructure
 - [Outpost](./outpost/overview) - Airgap deployment

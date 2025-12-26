@@ -5,7 +5,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 const config = {
   title: 'Optimal Platform Docs',
   tagline: 'Secure Software Delivery Platform',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   url: 'https://docs.gooptimal.io',
   baseUrl: '/',
@@ -101,16 +101,20 @@ const config = {
             title: 'Reference',
             items: [
               {
-                label: 'Reference Overview',
-                to: '/docs/reference/overview',
+                label: 'Configuration',
+                to: '/docs/reference/configuration',
               },
               {
                 label: 'Security',
                 to: '/docs/reference/security/overview',
               },
               {
-                label: 'Kyverno Policies',
-                to: '/docs/reference/security/kyverno-policies',
+                label: 'Observability',
+                to: '/docs/reference/observability/overview',
+              },
+              {
+                label: 'IAM & SSO',
+                to: '/docs/reference/iam/overview',
               },
             ],
           },
@@ -118,16 +122,20 @@ const config = {
             title: 'Deployment',
             items: [
               {
-                label: 'Deployment Overview',
-                to: '/docs/deployment/overview',
+                label: 'Local Development',
+                to: '/docs/deployment/local',
+              },
+              {
+                label: 'AWS',
+                to: '/docs/deployment/cloud/aws',
+              },
+              {
+                label: 'GCP',
+                to: '/docs/deployment/cloud/gcp',
               },
               {
                 label: 'Airgap (Outpost)',
                 to: '/docs/deployment/outpost/overview',
-              },
-              {
-                label: 'Troubleshooting',
-                to: '/docs/troubleshooting/common-issues',
               },
             ],
           },
