@@ -101,16 +101,16 @@ const config = {
             title: 'Reference',
             items: [
               {
-                label: 'Configuration',
-                to: '/docs/reference/configuration',
+                label: 'Reference Overview',
+                to: '/docs/reference/overview',
               },
               {
                 label: 'Security',
                 to: '/docs/reference/security/overview',
               },
               {
-                label: 'CLI Reference',
-                to: '/docs/reference/cli',
+                label: 'Kyverno Policies',
+                to: '/docs/reference/security/kyverno-policies',
               },
             ],
           },
@@ -118,16 +118,16 @@ const config = {
             title: 'Deployment',
             items: [
               {
-                label: 'Cloud Deployment',
-                to: '/docs/deployment/cloud',
+                label: 'Deployment Overview',
+                to: '/docs/deployment/overview',
               },
               {
                 label: 'Airgap (Outpost)',
-                to: '/docs/deployment/outpost',
+                to: '/docs/deployment/outpost/overview',
               },
               {
-                label: 'Local Development',
-                to: '/docs/deployment/local',
+                label: 'Troubleshooting',
+                to: '/docs/troubleshooting/common-issues',
               },
             ],
           },

@@ -36,7 +36,7 @@ make deploy-local
 - 8GB RAM minimum
 - 20GB disk space
 
-See [Local Development](./local) for details.
+See the [Quick Start Guide](/docs/getting-started/quickstart) for details.
 
 ## Cloud Deployment
 
@@ -58,7 +58,7 @@ make deploy-prod-aws
 - S3 storage
 - Route53 DNS
 
-See [AWS Deployment](./cloud/aws) for details.
+See the [Quick Start Guide](/docs/getting-started/quickstart) for AWS setup details.
 
 ### GCP (GKE)
 
@@ -78,7 +78,7 @@ make deploy-prod-gcp
 - Cloud Storage
 - Cloud DNS
 
-See [GCP Deployment](./cloud/gcp) for details.
+See the [Quick Start Guide](/docs/getting-started/quickstart) for GCP setup details.
 
 ### Azure (AKS)
 
@@ -98,7 +98,7 @@ make deploy-prod-azure
 - Blob Storage
 - Azure DNS
 
-See [Azure Deployment](./cloud/azure) for details.
+See the [Quick Start Guide](/docs/getting-started/quickstart) for Azure setup details.
 
 ## On-Premise
 
@@ -121,7 +121,7 @@ helm upgrade --install optimal-platform k8s/helm-charts/optimal-platform \
   -f values-production.yaml
 ```
 
-See [On-Premise Deployment](./on-premise) for details.
+Contact support for on-premise deployment assistance.
 
 ## Airgap (Outpost)
 
@@ -208,7 +208,5 @@ See [Outpost Overview](./outpost/overview) for details.
 
 Choose your deployment path:
 
-- [Local Development](./local) - Start developing locally
-- [Cloud Deployment](./cloud/aws) - Deploy to AWS, GCP, or Azure
-- [On-Premise](./on-premise) - Deploy to your infrastructure
+- [Quick Start Guide](/docs/getting-started/quickstart) - Start developing locally or deploy to cloud
 - [Outpost](./outpost/overview) - Airgap deployment

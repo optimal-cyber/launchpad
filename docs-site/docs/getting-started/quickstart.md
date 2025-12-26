@@ -224,6 +224,5 @@ kubectl exec -it <api-pod> -n optimal-system -- nc -zv postgresql 5432
 ## Next Steps
 
 - [Architecture Deep Dive](./architecture)
-- [Configure SSO](../reference/iam/keycloak)
-- [Setup Monitoring](../reference/observability/overview)
-- [Deploy to Production](../deployment/cloud/aws)
+- [Security Overview](../reference/security/overview)
+- [Deployment Options](../deployment/overview)

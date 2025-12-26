@@ -506,5 +506,4 @@ kubectl describe policyreport -n optimal-system
 
 ## Next Steps
 
-- [Network Policies](./network-policies) - Network security configuration
-- [Runtime Security](./runtime-security) - Falco configuration
+- [Security Overview](./overview) - Security architecture overview

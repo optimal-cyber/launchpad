@@ -10,19 +10,20 @@ Hands-on tutorials to help you get the most out of Optimal Platform.
 
 ## Getting Started
 
-- [First Deployment](./first-deployment) - Deploy your first environment
-- [Adding Applications](./adding-applications) - Add custom applications to the platform
-- [SSO Integration](./sso-integration) - Configure single sign-on
+Start with the [Quick Start Guide](/docs/getting-started/quickstart) to deploy your first environment.
 
 ## Security & Compliance
 
-- [Compliance Automation](./compliance-automation) - Automate compliance workflows
-- [Custom Policies](./custom-policies) - Create custom Kyverno policies
-- [Backup & Restore](./backup-restore) - Configure Velero backups
+Learn about security features in the [Security Overview](/docs/reference/security/overview) and [Kyverno Policies](/docs/reference/security/kyverno-policies) documentation.
 
-## Advanced Topics
+## Coming Soon
 
-Coming soon:
+- First Deployment Tutorial
+- Adding Applications
+- SSO Integration
+- Compliance Automation
+- Custom Policies
+- Backup & Restore
 - Multi-tenant Configuration
 - Custom Observability Dashboards
 - CI/CD Integration

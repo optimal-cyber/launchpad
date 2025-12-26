@@ -263,6 +263,4 @@ outpost package create \
 
 ## Next Steps
 
-- [Packaging Guide](./packaging) - Create your first bundle
-- [Registry Setup](./registry) - Configure airgap registry
-- [Deployment Guide](./deployment) - Deploy in airgap environment
+For more information on airgap deployments, see the [Deployment Overview](../overview).

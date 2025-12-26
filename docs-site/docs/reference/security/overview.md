@@ -118,7 +118,7 @@ Falco monitors runtime behavior for threats:
   priority: CRITICAL
 ```
 
-See [Runtime Security](./runtime-security) for complete reference.
+See the [Kyverno Policies](./kyverno-policies) documentation for policy examples.
 
 ## Network Security
 
@@ -161,7 +161,7 @@ spec:
         - port: 8000
 ```
 
-See [Network Policies](./network-policies) for complete reference.
+Network policies are configured following Kubernetes best practices.
 
 ## Authentication & Authorization
 
@@ -243,5 +243,3 @@ Integration with external secret stores:
 ## Next Steps
 
 - [Kyverno Policies](./kyverno-policies) - Policy reference
-- [Network Policies](./network-policies) - Network security
-- [Runtime Security](./runtime-security) - Falco configuration
